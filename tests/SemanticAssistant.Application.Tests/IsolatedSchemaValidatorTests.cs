@@ -87,8 +87,11 @@ public sealed class IsolatedSchemaValidatorTests
     {
         var validator = new IsolatedSchemaValidator(Fixture(), TimeSpan.FromMilliseconds(500));
         var watch = Stopwatch.StartNew();
-        var error = await Assert.ThrowsAsync<SchemaValidationException>(() => validator.ValidateAsync(Json("{\"type\":\"object\",\"x-fixture-hang\":true}"), Json("{}"), default));
-        Assert.Equal("validation_timeout", error.Code); Assert.InRange(watch.Elapsed.TotalSeconds, 0, 3); Exited(validator.LastProcessId);
+        // Includes process startup, shared-runner scheduling and two bounded cleanup waits.
+        // The worker deadline remains 500ms; total completion is not a real-time guarantee.
+        var error = await Assert.ThrowsAsync<SchemaValidationException>(() => validator.ValidateAsync(Json("{\"type\":\"object\",\"x-fixture-hang\":true}"), Json("{}"), default)
+            .WaitAsync(TimeSpan.FromSeconds(8)));
+        Assert.Equal("validation_timeout", error.Code); Assert.InRange(watch.Elapsed.TotalSeconds, 0, 8); Exited(validator.LastProcessId);
     }
     [Fact]
     public async Task CancellationWaitsForOwnHelperCleanupAndDoesNotPublishResult()

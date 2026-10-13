@@ -1,5 +1,7 @@
 # 本機驗證紀錄
 
+2026-10-13 CI 追加：提交 `8ff43d1` 的 build run `38349739243` 首次失敗於既有 `HungOwnHelperIsKilledAtWallDeadline`：已回傳 `validation_timeout`，但包含程序啟動與清理的總時間 4.12 秒超過測試的 3 秒斷言。測試改用 8 秒整段等待上限，保留 500 毫秒 worker deadline、拒絕錯誤碼及自有 helper 已退出檢查；產品逾時設定未放寬。失敗紀錄保留於 `artifacts/ci-build-r16-failure.log`；後續結果以發佈附加的 verification JSON 為準。本機首次重建亦因仍開啟的驗收視窗鎖住 DLL 而失敗，保留 `artifacts/verification-native-dashboard-ci1.log`；改用全新來源 ZIP 解壓目錄重建，沒有終止或操作使用者停止的視窗。
+
 最新補充：原生 Dashboard 主要流程、獨立同意與動態 HTML 已操作驗收；七項實際引擎回讀通過。編輯／子寫入後舊預覽文字已修正，新增十項定義回歸，完整 **514 passed / 0 failed / 0 skipped**、12 條 WPF 流程通過。修正後原生重測被使用者以 Esc 停止，不宣稱通過。詳細證據與接續界線見[原生 Dashboard 驗收](native-dashboard-acceptance.md)。下方504項及更早狀態為歷史紀錄。
 
 最新補充（2026-10-13）：[原生介面獨立驗收](native-ui-acceptance.md)完成自有 Desktop 選取／取消、結構搜尋／定義、模式撤銷、writer 預覽／未同意拒絕／實際三物件寫入及回讀。一般回歸為 **504 passed / 0 failed / 0 skipped**，12 條 WPF 合成流程全部通過；`artifacts/verification-native-ui.log`。AI 預檢無 HTTP、憑證讀取、模型讀取或查詢。新增的原生宿主使用軟體繪製，未把自動建窗當成 UI 驗收；原生操作與引擎證據分開。下列各輪數字、未連線描述與 CI／發佈缺口為歷史快照，當前公開狀態見 README、release 與保存／重開文件。
