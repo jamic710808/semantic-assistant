@@ -7,9 +7,19 @@ namespace SemanticAssistant.Desktop;
 
 public partial class App : System.Windows.Application
 {
+    private readonly Func<MainWindow>? startupWindowFactory;
+    public App() { }
+    public App(Func<MainWindow> startupWindowFactory) => this.startupWindowFactory = startupWindowFactory;
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (startupWindowFactory is not null)
+        {
+            var isolatedWindow = startupWindowFactory();
+            MainWindow = isolatedWindow;
+            isolatedWindow.Show();
+            return;
+        }
         var smoke = (e.Args.Length == 2 && e.Args[0] is "--smoke-test" or "--smoke-offline" or "--smoke-writer" or "--smoke-dashboard" or "--smoke-objects" or "--smoke-proposal" or "--smoke-settings" or "--smoke-modes" or "--smoke-history" or "--smoke-cloudlogin") ||
             (e.Args.Length == 3 && e.Args[0] is "--smoke-mcp" or "--smoke-importedtools");
         var smokeStore = smoke ? new SemanticAssistant.Application.FileAssistantSettingsStore(Path.Combine(

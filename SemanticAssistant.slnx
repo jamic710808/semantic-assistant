@@ -12,6 +12,7 @@
     <Project Path="src/SemanticAssistant.Desktop/SemanticAssistant.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SemanticAssistant.NativeUiAcceptance/SemanticAssistant.NativeUiAcceptance.csproj" />
     <Project Path="tests/SemanticAssistant.AiAcceptance/SemanticAssistant.AiAcceptance.csproj" />
     <Project Path="tests/SemanticAssistant.PowerBIFixture/SemanticAssistant.PowerBIFixture.csproj" />
     <Project Path="tests/SemanticAssistant.FixtureHost/SemanticAssistant.FixtureHost.csproj" />

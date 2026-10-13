@@ -1,6 +1,6 @@
 # 原始架構覆蓋與完成條件
 
-最新追加：[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收，下列仍將儲存／重開列為待驗收的段落屬於早期狀態。Assistant原生UI、真實AI／雲端及其他缺口仍保留。
+最新追加：[原生來源选取與writer](native-ui-acceptance.md)已完成實際操作與獨立引擎回讀；[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收。原生Dashboard／AI表單／取消競態、真實AI／雲端及其他缺口仍保留。下列仍將全部原生UI或儲存／重開列為待驗收的段落屬於早期狀態；本輪504項回歸與12條合成WPF流程通過。
 
 ## 目前狀態：r11 發佈後核對（2026-10-13）
 

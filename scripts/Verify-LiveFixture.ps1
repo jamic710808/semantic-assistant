@@ -1,4 +1,4 @@
-param([switch]$KeepOpen)
+param([switch]$KeepOpen, [switch]$PrepareUi)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path $PSScriptRoot -Parent
 $taskSdk = Join-Path (Split-Path $taskRoot -Parent) '.tools\dotnet10\dotnet.exe'
@@ -57,7 +57,8 @@ try {
         DesktopVersion = (Get-Item -LiteralPath $taskExe).VersionInfo.ProductVersion
         EngineProcessId = $taskEngine.Id; EngineStartedUtcTicks = $taskEngineTicks; Workspace = $taskWorkspace
     } | ConvertTo-Json | Set-Content -LiteralPath $taskRecord -Encoding utf8
-    & $taskSdk $taskDll --verify-owned $taskRecord
+    $taskCommand = if ($PrepareUi) { '--prepare-ui-owned' } else { '--verify-owned' }
+    & $taskSdk $taskDll $taskCommand $taskRecord
     if ($LASTEXITCODE -ne 0) { throw 'Live acceptance failed. Preserve the JSON evidence; do not retry a partially applied write.' }
     $taskVerified = $true
     if ($KeepOpen) { Write-Output ('Verified synthetic fixture retained for explicit save/reopen: ' + $taskRecord) }

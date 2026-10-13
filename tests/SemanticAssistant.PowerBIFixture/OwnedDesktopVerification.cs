@@ -107,7 +107,7 @@ public static class OwnedDesktopVerification
         }
     }
 
-    public static async Task<int> RunAsync(string recordPath)
+    public static async Task<int> RunAsync(string recordPath, bool prepareUiOnly = false)
     {
         var gates = new List<object>();
         var stage = "owned_process";
@@ -153,6 +153,7 @@ public static class OwnedDesktopVerification
                 ValidateResult(query, result); gates.Add(new { Gate = stage, Pass = true, Rows = result.Rows.Length });
                 Console.WriteLine(stage + "=verified");
             }
+            if (prepareUiOnly) { await Save(true, null); Console.WriteLine(evidencePath); return 0; }
             stage = "writer_preview_without_approval";
             var writer = adapter.CreateWriter();
             var session = new PermissionSession(snapshot.Identity, ConversationMode.Analyze,
@@ -201,7 +202,8 @@ public static class OwnedDesktopVerification
             await JsonSerializer.SerializeAsync(file, new { Version = 1, CapturedUtc = DateTimeOffset.UtcNow, Synthetic = true,
                 Passed = passed, FailedStage = failedStage, Gates = gates, RealAiProviderVerified = false, CloudVerified = false,
                 HtmlVisualVerified = false, NativeAssistantUiVerified = false,
-                DashboardLiveEngineVerified = passed, DynamicHtmlFilterContextVerified = passed }, new JsonSerializerOptions { WriteIndented = true });
+                PreparedForNativeUi = prepareUiOnly && passed,
+                DashboardLiveEngineVerified = passed && !prepareUiOnly, DynamicHtmlFilterContextVerified = passed && !prepareUiOnly }, new JsonSerializerOptions { WriteIndented = true });
         }
     }
 
@@ -215,7 +217,7 @@ public static class OwnedDesktopVerification
 
     // TMDL may normalize indentation; this fixed fixture has no multi-line text literals.
     private static string Canonical(string value) => string.Join("\n", value.Replace("\r\n", "\n").Trim().Split('\n').Select(line => line.Trim()));
-    internal static void EnsureOwned(OwnedSession owned)
+    public static void EnsureOwned(OwnedSession owned)
     {
         if (!OperatingSystem.IsWindows() || Path.GetFileName(owned.ProjectPath) != SyntheticDesktopFixture.ProjectName + ".pbip" ||
             !File.Exists(owned.ProjectPath)) throw new InvalidDataException("Owned fixture project missing.");

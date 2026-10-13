@@ -1,5 +1,7 @@
 # 本機驗證紀錄
 
+最新補充（2026-10-13）：[原生介面獨立驗收](native-ui-acceptance.md)完成自有 Desktop 選取／取消、結構搜尋／定義、模式撤銷、writer 預覽／未同意拒絕／實際三物件寫入及回讀。一般回歸為 **504 passed / 0 failed / 0 skipped**，12 條 WPF 合成流程全部通過；`artifacts/verification-native-ui.log`。AI 預檢無 HTTP、憑證讀取、模型讀取或查詢。新增的原生宿主使用軟體繪製，未把自動建窗當成 UI 驗收；原生操作與引擎證據分開。下列各輪數字、未連線描述與 CI／發佈缺口為歷史快照，當前公開狀態見 README、release 與保存／重開文件。
+
 日期：2026-10-13；Windows、獨立安裝的 .NET SDK 10.0.401。
 
 ## 結果

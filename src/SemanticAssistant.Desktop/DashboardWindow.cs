@@ -40,20 +40,21 @@ internal sealed class DashboardWindow : Window
     private CancellationTokenSource? running;
     private bool closeRequested;
     private readonly ModelIdentity? proposedSource;
+    private readonly string storageRoot;
     public bool Attempted { get; private set; }
     public string? ExportPath { get; private set; }
 
     public DashboardWindow(Window owner, ISemanticModelReader reader, IModelDefinitionWriter writer,
         IReadOnlyDaxQueryRunner runner, ModelSnapshot model, DashboardProposal? initialProposal = null, QueryLimits? queryLimits = null,
-        Action? modeGuard = null, Action<string>? artifactRecorded = null)
+        Action? modeGuard = null, Action<string>? artifactRecorded = null, string? storageRoot = null)
     {
+        this.storageRoot = storageRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant");
         this.artifactRecorded = artifactRecorded;
         this.modeGuard = modeGuard; modeGuard?.Invoke();
         this.writer = writer; this.reader = reader; Owner = owner; Title = "Dashboard · 計畫、修改與報告"; Width = 960; Height = 860;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         session = new(model.Identity, ConversationMode.Report, ImmutableHashSet.Create(Capability.MetadataRead));
-        coordinator = new(reader, writer, runner, session, new FileModelWriteJournal(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant", "write-journal")), queryLimits: queryLimits);
+        coordinator = new(reader, writer, runner, session, new FileModelWriteJournal(Path.Combine(this.storageRoot, "write-journal")), queryLimits: queryLimits);
         var panel = new StackPanel { Margin = new Thickness(20) }; Content = new ScrollViewer { Content = panel };
         panel.Children.Add(new TextBlock { Text = $"{model.Identity.Name}\n{model.Identity.Id}\n模型修改、資料查詢與檔案匯出分別同意。此流程沒有 AI 外送。", TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(new TextBlock { Text = "計畫：最多六個自有指標、一個分組維度及可選日期範圍。視覺欄位 0 為分組，其後依指標順序。固定 HTML 保存查詢快照；動態 HTML 由目前已驗證指標產生 DAX，依篩選重新計算前100組，KPI只聚合顯示組別。動態 DAX最多8000字，標籤最多256字，需支援HTML/SVG的Power BI視覺；實際引擎與切片器驗收尚待完成。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 10) });
@@ -174,8 +175,7 @@ internal sealed class DashboardWindow : Window
             try
             {
                 await EnsureCurrentResultAsync(token); UpdateGrants(Capability.MetadataRead, Capability.ArtifactWrite);
-                ExportPath = await new HtmlReportExporter(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "SemanticAssistant", "reports"), session, modeGuard: modeGuard).ExportAsync(result!, session.Snapshot, token, report);
+                ExportPath = await new HtmlReportExporter(Path.Combine(storageRoot, "reports"), session, modeGuard: modeGuard).ExportAsync(result!, session.Snapshot, token, report);
                 status.Text = $"本機 HTML 已匯出：\n{ExportPath}";
                 try { artifactRecorded?.Invoke(ExportPath); } catch { status.Text += "\n歷史索引保存失敗；報告已完成。"; }
             }
@@ -186,7 +186,7 @@ internal sealed class DashboardWindow : Window
     {
         await EnsureCurrentResultAsync(token);
         var change = DashboardPlans.HtmlMeasure(draft!.Plan.Metrics[0].Table, htmlName.Text, result!, report!);
-        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, sourceResult: result, modeGuard: modeGuard);
+        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, sourceResult: result, modeGuard: modeGuard, storageRoot: storageRoot);
         dialog.ShowDialog(); Attempted |= dialog.Attempted;
         if (dialog.Attempted) ResetPlan();
     });
@@ -204,7 +204,7 @@ internal sealed class DashboardWindow : Window
     private Task DynamicHtmlMeasureAsync() => RunAsync(async token =>
     {
         var change = await PrepareDynamicHtmlAsync(token);
-        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, modeGuard: modeGuard);
+        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, modeGuard: modeGuard, storageRoot: storageRoot);
         dialog.ShowDialog(); Attempted |= dialog.Attempted;
         if (dialog.Attempted) ResetPlan();
     });

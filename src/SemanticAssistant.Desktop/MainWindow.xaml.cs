@@ -43,14 +43,16 @@ public partial class MainWindow : Window
     private CloudModelAdapter? cloudModel;
     private MsalUserIdentity? cloudIdentity;
     private DemoDefinitionWriter? demoWriter;
+    private readonly Func<DesktopDiscovery> localDiscoveryFactory;
+    private readonly string storageRoot;
 
-    public MainWindow(IAssistantSettingsStore? settingsStore = null, bool restoreSettings = true, IHistoryStore? historyStore = null)
+    public MainWindow(IAssistantSettingsStore? settingsStore = null, bool restoreSettings = true, IHistoryStore? historyStore = null,
+        Func<DesktopDiscovery>? localDiscoveryFactory = null, string? storageRoot = null)
     {
-        this.historyStore = historyStore ?? new FileHistoryStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant", "history"), Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant", "reports"));
-        this.settingsStore = settingsStore ?? new FileAssistantSettingsStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant", "preferences"));
+        this.localDiscoveryFactory = localDiscoveryFactory ?? (() => new DesktopDiscovery(new WindowsLocalPortInventory()));
+        this.storageRoot = storageRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant");
+        this.historyStore = historyStore ?? new FileHistoryStore(Path.Combine(this.storageRoot, "history"), Path.Combine(this.storageRoot, "reports"));
+        this.settingsStore = settingsStore ?? new FileAssistantSettingsStore(Path.Combine(this.storageRoot, "preferences"));
         InitializeComponent();
         uiReady = true;
         PresentSelection();
@@ -191,7 +193,7 @@ public partial class MainWindow : Window
         if (running is not null) return;
         try
         {
-            var discovery = new DesktopDiscovery(new WindowsLocalPortInventory());
+            var discovery = localDiscoveryFactory();
             var instances = discovery.Discover(DesktopDiscovery.DefaultRoots());
             if (instances.IsEmpty) { SourceStatus.Text = "沒有可用的 Power BI Desktop instance；請開啟測試模型後重新列舉。"; return; }
             var instance = SelectLocal("選取本機 Desktop instance（接著只讀結構）", instances,
@@ -380,7 +382,7 @@ public partial class MainWindow : Window
         if (cloudModel is not null) writer = cloudModel.CreateWriter();
         else if (localModel is not null) writer = localModel.CreateWriter();
         else writer = demoWriter ??= new DemoDefinitionWriter();
-        var window = new ModelWriteWindow(this, writer, workspace.Current.Model.Identity, workspace.Current.Model.Tables[0].Name);
+        var window = new ModelWriteWindow(this, writer, workspace.Current.Model.Identity, workspace.Current.Model.Tables[0].Name, storageRoot: storageRoot);
         window.ShowDialog();
         if (!window.Attempted) return;
         InvalidateConversation();
@@ -410,7 +412,7 @@ public partial class MainWindow : Window
         IReadOnlyDaxQueryRunner runner = cloudModel is not null ? cloudModel : localModel is not null ? localModel : demoWriter!;
         var dialog = new DashboardWindow(this, reader, writer, runner, workspace.Current.Model, proposal,
             settings.Budgets.QueryLimits(cloudModel is not null), modeGuard,
-            artifactRecorded: path => TryHistory(() => historyStore.RecordArtifact(AssistantMode.Dashboard, workspace.Current.Source, path))); dialog.ShowDialog();
+            artifactRecorded: path => TryHistory(() => historyStore.RecordArtifact(AssistantMode.Dashboard, workspace.Current.Source, path)), storageRoot: storageRoot); dialog.ShowDialog();
         if (!dialog.Attempted) return;
         InvalidateConversation();
         if (cloudModel is not null) await LoadCloudAsync(cloudModel);
@@ -856,7 +858,7 @@ public partial class MainWindow : Window
             SetBusy(true);
             try
             {
-                var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant", "reports");
+                var folder = Path.Combine(storageRoot, "reports");
                 operation.Check(modeSnapshot, exportSession.Snapshot, exportSession, Capability.ArtifactWrite);
                 var spec = ReportSpecs.Default(exportResult);
                 if (ReportStylePicker.SelectedIndex == 1)
@@ -895,7 +897,7 @@ public partial class MainWindow : Window
         var writer = cloudModel is not null ? cloudModel.CreateWriter() : localModel is not null ? localModel.CreateWriter() : demoWriter ??= new DemoDefinitionWriter();
         var change = DashboardPlans.HtmlMeasure(table.Name, "SA_ReportHTML", source, ReportSpecs.Default(source));
         var window = new ModelWriteWindow(this, writer, source.Source, table.Name, [change], expectedSource: source.Source,
-            sourceResult: source, modeGuard: () => operation.EnsureRoute(modeSnapshot, ModeRoute.HtmlMeasure));
+            sourceResult: source, modeGuard: () => operation.EnsureRoute(modeSnapshot, ModeRoute.HtmlMeasure), storageRoot: storageRoot);
         window.ShowDialog();
         if (!window.Attempted) return;
         InvalidateConversation();

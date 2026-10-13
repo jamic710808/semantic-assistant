@@ -48,7 +48,7 @@ internal sealed class ModelWriteWindow : Window
 
     public ModelWriteWindow(Window owner, IModelDefinitionWriter writer, ModelIdentity target, string table,
         ImmutableArray<MeasureChange>? initialChanges = null, ModelChanges? initialObjects = null, ModelIdentity? expectedSource = null,
-        QueryResult? sourceResult = null, Action? modeGuard = null)
+        QueryResult? sourceResult = null, Action? modeGuard = null, string? storageRoot = null)
     {
         this.modeGuard = modeGuard; modeGuard?.Invoke();
         if (sourceResult is not null)
@@ -61,8 +61,8 @@ internal sealed class ModelWriteWindow : Window
         this.expectedSource = expectedSource;
         if (target.IsSynthetic) inputMode.ItemsSource = new[] { "度量值陣列", "混合模型物件 JSON", "載入合成混合範例" };
         session = new(target, ConversationMode.Analyze, ImmutableHashSet.Create(Capability.MetadataRead));
-        coordinator = new(writer, session, new FileModelWriteJournal(System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant", "write-journal")));
+        coordinator = new(writer, session, new FileModelWriteJournal(System.IO.Path.Combine(storageRoot ?? System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant"), "write-journal")));
         Owner = owner; Title = "模型寫入 · 預覽與逐次同意"; Width = 850; Height = 780;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var panel = new StackPanel { Margin = new Thickness(20) }; Content = new ScrollViewer { Content = panel };

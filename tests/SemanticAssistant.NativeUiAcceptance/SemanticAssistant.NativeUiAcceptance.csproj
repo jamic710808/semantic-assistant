@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SemanticAssistant.Desktop/SemanticAssistant.Desktop.csproj" />
+    <ProjectReference Include="../SemanticAssistant.PowerBIFixture/SemanticAssistant.PowerBIFixture.csproj" />
+  </ItemGroup>
+</Project>

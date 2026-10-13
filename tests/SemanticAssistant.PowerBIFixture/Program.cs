@@ -1,5 +1,9 @@
 using SemanticAssistant.PowerBIFixture;
 
+if (args.Length == 2 && args[0] == "--verify-native-writer-owned")
+    return await NativeWriterReadbackVerification.RunAsync(args[1]);
+if (args.Length == 2 && args[0] == "--prepare-ui-owned")
+    return await OwnedDesktopVerification.RunAsync(args[1], prepareUiOnly: true);
 if (args.Length == 3 && args[0] == "--verify-persisted")
     return await PersistenceDesktopVerification.RunAsync(args[1], args[2]);
 if (args.Length == 2 && args[0] == "--verify-owned")
