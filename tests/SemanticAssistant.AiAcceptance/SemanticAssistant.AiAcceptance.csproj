@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SemanticAssistant.Adapters.AI/SemanticAssistant.Adapters.AI.csproj" />
+    <ProjectReference Include="../../src/SemanticAssistant.Adapters.Demo/SemanticAssistant.Adapters.Demo.csproj" />
+  </ItemGroup>
+</Project>

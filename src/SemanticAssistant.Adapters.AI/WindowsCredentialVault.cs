@@ -1,10 +1,9 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using SemanticAssistant.Adapters.AI;
 using SemanticAssistant.Contracts;
 
-namespace SemanticAssistant.Desktop;
+namespace SemanticAssistant.Adapters.AI;
 
 public sealed class WindowsCredentialVault : ICredentialSource
 {
@@ -13,6 +12,7 @@ public sealed class WindowsCredentialVault : ICredentialSource
 
     public string? ReadSecret(ProviderIdentity provider)
     {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         if (!CredRead(Target(provider), 1, 0, out var pointer))
         {
             if (Marshal.GetLastWin32Error() == 1168) return null;
@@ -31,6 +31,7 @@ public sealed class WindowsCredentialVault : ICredentialSource
 
     public void SaveSecret(ProviderIdentity provider, string secret)
     {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         var bytes = Encoding.UTF8.GetBytes(secret);
         if (bytes.Length is < 1 or > 2560 || secret.Any(char.IsControl))
             throw new ArgumentException("API key 無效或過長。");
@@ -59,6 +60,7 @@ public sealed class WindowsCredentialVault : ICredentialSource
 
     public void DeleteSecret(ProviderIdentity provider)
     {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         if (!CredDelete(Target(provider), 1, 0) && Marshal.GetLastWin32Error() != 1168)
             throw new InvalidOperationException("無法刪除本程式憑證。");
     }

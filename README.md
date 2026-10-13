@@ -21,6 +21,8 @@ Dashboard／動態HTML的獨立引擎驗收工具與三份計畫已加入；[操
 
 ## 立即啟動
 
+M3 真實 AI 驗收入口：[預檢、供應商設定與證據判定](docs/ai-provider-acceptance.md)。先執行 `scripts/Verify-AiProvider.ps1`；預設不發送 AI HTTP、不讀 key 或模型。真實供應商需另填 profile 並明確開啟 live／外送 flags，未執行時保留待驗收狀態。
+
 雲端登入新增預設關閉的30天加密快取、改選帳號及登出清除；[使用與驗收界線](docs/cloud-login-cache.md)。本機DPAPI／MSAL快取通知及登入表單已驗證，真實OAuth與Power BI雲端服務另行驗收。
 
 獨立 Power BI 驗收專案：執行 `scripts/New-LiveFixture.ps1`，產生含69筆合成資料的新PBIP、四條DAX、預期值及writer／Dashboard計畫。[測試模型與真機驗收步驟](docs/live-fixture-acceptance.md)。產生器只寫檔；另有 `scripts/Verify-LiveFixture.ps1`，每次建立新專案、啟動獨立Desktop、核對程序身分與固定來源、完成查詢／寫入後清理自有程序。

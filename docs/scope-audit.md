@@ -1,5 +1,15 @@
 # 原始架構覆蓋與完成條件
 
+## 目前狀態：r11 發佈後核對（2026-10-13）
+
+來源已公開於 [GitHub](https://github.com/jamic710808/semantic-assistant)，[來源預覽版 r11](https://github.com/jamic710808/semantic-assistant/releases/tag/source-preview-r11) 對應提交 `53da1896b260d9d9260fcd216b2d9e7d79347b85`。181 個來源檔案、23 個相依套件；457項測試、12條WPF與8條封裝流程通過；兩條GitHub CI成功，本機／CI／下載ZIP雜湊相同。因此，本文下方「remote／CI／公開release尚未完成」已是歷史狀態，不能當作目前缺口。
+
+公開來源不代表整體目標完成。真實AI、Entra／silent refresh／雲端服務、原生UI選取、儲存／重開、真實故障修復及Power BI自訂HTML視覺／切片器仍需對應證據。第三方二進位分發、完整機密稽核也沒有因來源發佈而自動通過。
+
+M3 新增[供應商驗收工具](ai-provider-acceptance.md)：預設本機預檢；真實請求須明確live與三類外送flags，固定使用自有DemoModel。使用者已選擇先完成工具、稍後設定供應商，因此未把工具／注入測試當作真實AI通過。
+
+## 下列分期表與進展保留歷史證據
+
 日期：2026-10-13。依據 `open-architecture.md`、`roadmap.md`、`design-review-m1.md` 及目前原始碼重新核對。**本文件不是把目前已完成部分重新定義為全部目標。**
 
 ## 判定方式

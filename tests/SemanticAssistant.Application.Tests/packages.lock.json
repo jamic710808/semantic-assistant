@@ -206,6 +206,13 @@
           "SemanticAssistant.Application": "[1.0.0, )"
         }
       },
+      "semanticassistant.aiacceptance": {
+        "type": "Project",
+        "dependencies": {
+          "SemanticAssistant.Adapters.AI": "[1.0.0, )",
+          "SemanticAssistant.Adapters.Demo": "[1.0.0, )"
+        }
+      },
       "semanticassistant.application": {
         "type": "Project",
         "dependencies": {

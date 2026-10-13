@@ -1,5 +1,11 @@
 # 實作分期與驗收
 
+## 最新核對（2026-10-13）
+
+公開來源、GitHub CI與[來源預覽版 r11](https://github.com/jamic710808/semantic-assistant/releases/tag/source-preview-r11)已完成；下文的「尚未發佈／CI未執行／token持久化未完成」保留為分期歷史，不代表目前狀態。r11有457項測試、12條WPF、8條封裝流程及跨本機／CI一致ZIP證據；完整產品仍待真實AI、雲端及部分Desktop/UI驗收。
+
+目前接續項目為[M3供應商驗收工具](ai-provider-acceptance.md)：已加入固定合成任務、明確外送flags、no-consent預檢、實際HTTP／工具結果往返與取消／撤銷檢查。使用者選擇稍後設定供應商，未宣稱真實服務通過。詳細缺口以[目前覆蓋核對](scope-audit.md)為準。
+
 ## M0：逆向基線與架構契約（已完成）
 
 - 固定安裝版 build stamp、artifact hash 與 REA Evidence ID。

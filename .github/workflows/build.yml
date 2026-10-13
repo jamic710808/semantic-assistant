@@ -28,4 +28,5 @@ jobs:
             artifacts/*.txt
             artifacts/*.png
             artifacts/*.log
+            artifacts/ai-acceptance-preflight-*/verification.json
           if-no-files-found: error

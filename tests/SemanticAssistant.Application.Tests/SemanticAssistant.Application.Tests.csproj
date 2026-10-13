@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../SemanticAssistant.AiAcceptance/SemanticAssistant.AiAcceptance.csproj" />
     <ProjectReference Include="../SemanticAssistant.PowerBIFixture/SemanticAssistant.PowerBIFixture.csproj" />
     <ProjectReference Include="../../src/SemanticAssistant.Cli/SemanticAssistant.Cli.csproj" ReferenceOutputAssembly="false" />
     <Content Include="../../src/SemanticAssistant.Cli/bin/$(Configuration)/net10.0/SemanticAssistant.Cli.dll;../../src/SemanticAssistant.Cli/bin/$(Configuration)/net10.0/SemanticAssistant.Cli.deps.json;../../src/SemanticAssistant.Cli/bin/$(Configuration)/net10.0/SemanticAssistant.Cli.runtimeconfig.json">

@@ -13,6 +13,15 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
     & $taskSdk run --project src\SemanticAssistant.Cli -c Release --no-build -- --allow-query
     if ($LASTEXITCODE -ne 0) { throw 'CLI smoke failed.' }
+    $taskAiAcceptanceOutput = Join-Path $taskRoot ('artifacts/ai-acceptance-preflight-' + [Guid]::NewGuid().ToString('N'))
+    & $taskSdk run --project tests/SemanticAssistant.AiAcceptance -c Release --no-build -- --preflight --profile examples/ai-acceptance/profile.example.json --output-dir $taskAiAcceptanceOutput
+    if ($LASTEXITCODE -ne 0) { throw 'AI acceptance preflight failed.' }
+    $taskAiAcceptance = Get-Content -LiteralPath (Join-Path $taskAiAcceptanceOutput 'verification.json') -Raw | ConvertFrom-Json
+    if (-not $taskAiAcceptance.LocalPreflightPassed -or $taskAiAcceptance.LiveRequested -or $taskAiAcceptance.ConfiguredEndpointVerified -or
+        @($taskAiAcceptance.Gates | Where-Object { $_.HttpRequests -ne 0 -or $_.CredentialReads -ne 0 -or $_.ModelReads -ne 0 -or $_.Queries -ne 0 }).Count -ne 0) {
+        throw 'AI acceptance preflight performed unexpected I/O.'
+    }
+    Write-Output 'ai-acceptance-preflight=passed;ai-http=0;credential-reads=0;private-models=false;live-provider=false'
     if (-not $SkipDesktopSmoke) {
         foreach ($taskScenario in @(
             @{Flag='--smoke-cloudlogin';Prefix='wpf-cloudlogin';Expected='wpf-loaded;cloud-cache-opt-in-default-off=ok;dpapi-roundtrip=ok;clear-from-form=ok;no-restored-consent=ok;synthetic-fixture=true';Image='cloudlogin-preview.png'},

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "semanticassistant.adapters.ai": {
+        "type": "Project",
+        "dependencies": {
+          "SemanticAssistant.Application": "[1.0.0, )"
+        }
+      },
+      "semanticassistant.adapters.demo": {
+        "type": "Project",
+        "dependencies": {
+          "SemanticAssistant.Application": "[1.0.0, )"
+        }
+      },
+      "semanticassistant.application": {
+        "type": "Project",
+        "dependencies": {
+          "SemanticAssistant.Contracts": "[1.0.0, )"
+        }
+      },
+      "semanticassistant.contracts": {
+        "type": "Project"
+      }
+    }
+  }
+}

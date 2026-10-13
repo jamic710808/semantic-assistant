@@ -1,0 +1,9 @@
+{
+  "FormatVersion": 1,
+  "Provider": {
+    "Id": "openai-compatible",
+    "Endpoint": "https://example.invalid/v1/chat/completions",
+    "Model": "replace-with-your-model"
+  },
+  "TimeoutSeconds": 60
+}
