@@ -1,5 +1,7 @@
 name: Build and verify desktop and offline viewer
 on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
 jobs:
   windows-demo:
     runs-on: windows-latest
@@ -20,5 +22,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: m1-windows-evidence
-          path: artifacts/
+          name: windows-synthetic-verification-evidence
+          path: |
+            artifacts/test-results/*.trx
+            artifacts/*.txt
+            artifacts/*.png
+            artifacts/*.log
+          if-no-files-found: error

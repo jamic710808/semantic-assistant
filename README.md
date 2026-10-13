@@ -3,9 +3,15 @@
 狀態：M1–M6 所列主要流程已有程式碼與合成驗證；MCP Schema 隔離、情境建構器、查詢結果期限、可選設定保存、五種操作模式與可選歷史保存已加入。共用工具註冊、政策引擎與MCP明確匯入已加入；合成PBIP已在真實Desktop通過刷新、ADOMD查詢、三種TOM物件寫入、Dashboard及動態HTML篩選內容驗收；AI、雲端、Power BI自訂HTML視覺、原生介面操作及公開發佈仍待驗收。  
 日期：2026-10-13
 
-這個專案記錄對 ABI Assistant 5.0.2 的靜態分析，並自行實作可由原始碼建置的 **Semantic Assistant**。可執行桌面示範與核心工具流程；自行重寫來源採 MIT，已有相依清單與來源封裝工具，尚未推送或公開發佈。
+這個專案記錄對 ABI Assistant 5.0.2 的靜態分析，並自行實作可由原始碼建置的 **Semantic Assistant**。可執行桌面示範與核心工具流程；自行重寫來源採 MIT，原始碼已公開於 [jamic710808/semantic-assistant](https://github.com/jamic710808/semantic-assistant)。目前是來源預覽版，真實 AI 與雲端服務仍待驗收。
 
-開源準備：[LICENSE](LICENSE)、[NOTICE](NOTICE)、[22 個套件的版本與條款清單](docs/dependencies.json)、[來源封裝與驗證](docs/release.md)。第三方二進位保留各自條款；JsonSchema.Net 等預編譯套件附有維護費條件，來源 ZIP 沒有收錄第三方 DLL。
+開源準備：[LICENSE](LICENSE)、[NOTICE](NOTICE)、[23 個套件的版本與條款清單](docs/dependencies.json)、[來源封裝與驗證](docs/release.md)。第三方二進位保留各自條款；JsonSchema.Net 等預編譯套件附有維護費條件，來源 ZIP 沒有收錄第三方 DLL。CI 只上傳合成驗證紀錄與畫面，建置產生的 DLL 不列入下載附件。
+
+```powershell
+git clone https://github.com/jamic710808/semantic-assistant.git
+Set-Location semantic-assistant
+.\scripts\Start-Demo.ps1
+```
 
 Dashboard／動態HTML的獨立引擎驗收工具與三份計畫已加入；[操作、預期值與驗收界線](docs/dashboard-engine-acceptance.md)。修正SVG座標尾點後，全新模型通過34個真機檢查點、423項回歸測試及4份實際HTML的瀏覽器檢視；私人模型與Power BI自訂HTML視覺不在此證據範圍。
 
