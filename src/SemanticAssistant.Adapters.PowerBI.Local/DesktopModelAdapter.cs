@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AnalysisServices.AdomdClient;
@@ -80,16 +81,20 @@ public sealed class DesktopModelAdapter(DesktopInstance instance, string catalog
         ReadOnlyDax.Validate(dax);
         if (limits.MaxRows is < 1 or > 100 || limits.MaxBytes is < 1024 or > 64_000 || limits.EffectiveTimeout <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(limits));
+        var elapsed = Stopwatch.StartNew();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         deadline.CancelAfter(limits.EffectiveTimeout);
         try
         {
             var result = await Task.Run(() => Execute(target, dax, limits, deadline.Token), deadline.Token).ConfigureAwait(false);
+            if (elapsed.Elapsed >= limits.EffectiveTimeout) deadline.Cancel();
             deadline.Token.ThrowIfCancellationRequested();
             return result;
         }
-        catch (Exception) when (deadline.IsCancellationRequested)
-        { throw new OperationCanceledException(deadline.Token); }
+        // Timer callbacks can be delayed on a busy thread pool. Elapsed time still
+        // forbids a result or an ordinary SDK error after the requested deadline.
+        catch (Exception) when (deadline.IsCancellationRequested || elapsed.Elapsed >= limits.EffectiveTimeout)
+        { deadline.Cancel(); throw new OperationCanceledException(deadline.Token); }
     }
 
     private QueryResult Execute(ModelIdentity target, string dax, QueryLimits limits, CancellationToken token)
