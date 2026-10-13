@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path $PSScriptRoot -Parent
 $taskCases = @(
     @{Path='LICENSE';Allowed=$true}, @{Path='src/Module/File.cs';Allowed=$true},
+    @{Path='.gitattributes';Allowed=$true},
     @{Path='examples/synthetic-model/definition/tables/Sales.tmdl';Allowed=$true},
     @{Path='docs/dependencies.json';Allowed=$true},
     @{Path='../outside.cs';Allowed=$false}, @{Path='src/../outside.cs';Allowed=$false},

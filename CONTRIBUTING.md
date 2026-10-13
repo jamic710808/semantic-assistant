@@ -7,3 +7,5 @@
 5. 本機資料讀取與外送 AI 必須分別授權。模型寫入與MCP由獨立適配器／當次同意控制；Demo的記憶體writer只保存自製合成狀態，不連接真實模型。
 6. lock files 必須一起更新。穩定錯誤碼、取消語意及事件契約見 `docs/m1-contracts.md`。
 7. 自行重寫來源採 MIT，見 `LICENSE`／`NOTICE`。第三方條款與精確版本見 `docs/dependencies.json`；更新套件時須重新盤點，不能將第三方二進位改標 MIT。來源 release 使用 `scripts/Verify-Release.ps1`／`New-SourceRelease.ps1`；二進位分發審查另見 `docs/release.md`。不要宣稱與 ABI Assistant 功能或安全等價。
+
+8. `.gitattributes` 保留原始檔案位元組，避免 Git checkout 自動轉換換行造成來源 ZIP 與逐檔雜湊差異。修改檔案後重新建立來源候選；不要覆蓋已發佈附件。

@@ -1,0 +1,2 @@
+# Preserve exact source bytes for archive manifests across Git checkouts.
+* -text

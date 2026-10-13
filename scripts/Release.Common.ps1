@@ -18,7 +18,7 @@ function Assert-SourceRelativePath([string]$Path) {
         $Path -match '(?i)(^|/)\.env($|\.)' -or $Path -match '(?i)\.(exe|dll|pdb|pbix|pbit|pem|pfx|key|log|zip|nupkg)$') {
         throw 'A generated, secret or model artifact cannot enter a source release.'
     }
-    $taskRoots = @('.gitignore', 'LICENSE', 'NOTICE', 'README.md', 'CONTRIBUTING.md',
+    $taskRoots = @('.gitignore', '.gitattributes', 'LICENSE', 'NOTICE', 'README.md', 'CONTRIBUTING.md',
         'Directory.Build.props', 'NuGet.Config', 'global.json', 'SemanticAssistant.slnx', 'Start-Demo.cmd')
     if ($Path -notin $taskRoots -and ($Path -notmatch '^(\.github|docs|examples|scripts|src|tests)/' -or
         $Path -notmatch '(?i)\.(md|cs|csproj|xaml|json|slnx|props|config|ps1|cmd|yml|yaml|tmdl|txt|rtf)$')) {

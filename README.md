@@ -1,5 +1,9 @@
 # Semantic Model Assistant：ABI Assistant 逆向與開源重建
 
+[![Windows CI](https://github.com/jamic710808/semantic-assistant/actions/workflows/build.yml/badge.svg)](https://github.com/jamic710808/semantic-assistant/actions/workflows/build.yml)
+
+[來源預覽版下載與版本紀錄](https://github.com/jamic710808/semantic-assistant/releases)；[CI 建置與驗證紀錄](https://github.com/jamic710808/semantic-assistant/actions)。
+
 狀態：M1–M6 所列主要流程已有程式碼與合成驗證；MCP Schema 隔離、情境建構器、查詢結果期限、可選設定保存、五種操作模式與可選歷史保存已加入。共用工具註冊、政策引擎與MCP明確匯入已加入；合成PBIP已在真實Desktop通過刷新、ADOMD查詢、三種TOM物件寫入、Dashboard及動態HTML篩選內容驗收；原始碼已公開。真實AI、雲端、Power BI自訂HTML視覺及原生介面操作仍待驗收。  
 日期：2026-10-13
 

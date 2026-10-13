@@ -69,7 +69,8 @@ public sealed class IsolatedSchemaValidator
             var resources = MonitorResourcesAsync(process, job, deadline.Token); monitorTask = resources;
             await Task.WhenAll(inputTask, process.WaitForExitAsync(deadline.Token), response, errorsTask, resources).WaitAsync(deadline.Token).ConfigureAwait(false);
             if (await resources is { } resourceFailure) throw new SchemaValidationException(resourceFailure);
-            if (process.ExitCode != 0) throw new SchemaValidationException("worker_failed");
+            if (process.ExitCode != 0) throw new SchemaValidationException(
+                CpuLimitReached(process) ? "validation_cpu_limit" : "worker_failed");
             using var document = JsonDocument.Parse(await response, new() { MaxDepth = 2 });
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != 3 ||
@@ -80,7 +81,8 @@ public sealed class IsolatedSchemaValidator
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { throw new SchemaValidationException("validation_timeout"); }
         catch (SchemaValidationException) { throw; }
-        catch { throw new SchemaValidationException("worker_failed"); }
+        catch { throw new SchemaValidationException(
+            CpuLimitReached(process) ? "validation_cpu_limit" : "worker_failed"); }
         finally
         {
             deadline.Cancel();
@@ -105,14 +107,22 @@ public sealed class IsolatedSchemaValidator
         while (true)
         {
             await Task.Delay(50, token).ConfigureAwait(false); process.Refresh();
-            if (process.HasExited) return null;
-            var failure = process.TotalProcessorTime >= TimeSpan.FromSeconds(2) ? "validation_cpu_limit" :
-                process.PrivateMemorySize64 > 256L * 1024 * 1024 ? "validation_memory_limit" : null;
+            // The Windows Job may terminate the helper before this poll executes.
+            // Its final CPU time remains available through our process handle.
+            var failure = CpuLimitReached(process) ? "validation_cpu_limit" : null;
+            if (failure is null && process.HasExited) return null;
+            if (failure is null && process.PrivateMemorySize64 > 256L * 1024 * 1024)
+                failure = "validation_memory_limit";
             if (failure is null) continue;
             // Job CPU checks are periodic, so also enforce a host-observed total CPU budget.
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
             job?.Dispose(); return failure;
         }
+    }
+    private static bool CpuLimitReached(Process process)
+    {
+        try { return process.TotalProcessorTime >= TimeSpan.FromSeconds(2); }
+        catch { return false; } // An unavailable measurement cannot authorize a worker reply.
     }
     private static async Task SendAsync(Process process, string request, CancellationToken token)
     {
