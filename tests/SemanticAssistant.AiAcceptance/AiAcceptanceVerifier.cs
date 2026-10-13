@@ -125,7 +125,8 @@ public sealed class AiAcceptanceVerifier(AiAcceptanceProfile profile, ICredentia
                 "message-only" => outcome.Code == "ok" && textSeen && model.Reads == 0 && model.Queries == 0 && restricted == 0,
                 "tool-roundtrip" => outcome.Code == "ok" && finalMarkerSeen && requests >= 2 &&
                     transport.RequestsWithSyntheticQueryResult > beforeResults && model.Queries > 0 &&
-                    outcome.ToolResults.Any(r => r.ToolName == "get_table_details" && r.Success) &&
+                    outcome.ToolResults.All(r => r.Success) &&
+                    outcome.ToolResults.TakeWhile(r => r.Query is null).Any(r => r.ToolName == "get_table_details" && r.Success) &&
                     outcome.ToolResults.Any(r => r.Query?.Rows.Length == 3 && r.Success),
                 "cancel-on-text" => textSeen && !lateText && outcome.Code == "cancelled" && model.Queries == 0 && restricted == 0,
                 _ => textSeen && !lateText && outcome.Code == "stale_permission" && model.Queries == 0 && restricted == 0

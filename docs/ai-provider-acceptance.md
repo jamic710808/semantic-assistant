@@ -32,7 +32,7 @@ Windows 安裝 `global.json` 指定的 .NET SDK 後執行；腳本會以 lock fi
 | 檢查 | 必須觀察的證據 |
 |---|---|
 | message-only | 成功收到串流文字；即使本機有結構／查詢能力，未授權的結構不得讀取、工具不得外送、數值不得查詢 |
-| tool-roundtrip | AI 先讀合成表中繼資料，再使用內附固定 DAX；三列結果成功回傳下一輪 HTTP，模型在收到結果後回覆隨機標記 |
+| tool-roundtrip | AI 先讀合成表中繼資料，再使用內附固定 DAX；每個工具均成功，三列結果成功回傳下一輪 HTTP，模型在收到結果後回覆隨機標記 |
 | cancel-on-text | 首段非空文字觸發取消；回合回傳 `cancelled`，不得發出後續文字或執行查詢 |
 | revoke-on-text | 首段非空文字撤銷該回合權限；回傳 `stale_permission`，不得發出後續文字或執行查詢 |
 
@@ -40,7 +40,7 @@ Windows 安裝 `global.json` 指定的 .NET SDK 後執行；腳本會以 lock fi
 
 ## 報告與判定
 
-- 報告只保存 profile SHA-256、時間、固定 gate／狀態／錯誤碼與 HTTP／憑證讀取／模型讀取／查詢次數。不保存 key、端點、AI 回覆、原始錯誤 body、prompt、DAX 或結果列。
+- 報告只保存 provider 身分（`profile.Provider` 正規化後 JSON）的 SHA-256、時間、固定 gate／狀態／錯誤碼與 HTTP／憑證讀取／模型讀取／查詢次數。不保存 key、端點、AI 回覆、原始錯誤 body、prompt、DAX 或結果列。
 - `LocalPreflightPassed` 只證明本機拒絕檢查。
 - `ConfiguredEndpointVerified` 需要明確 live flags、實际 HTTP transport 與全部八項檢查通過。注入 handler 測試即使全過，此值也維持 false；`Transport` 顯示 `injected-test-transport`。
 - 實際 loopback 端點通過只證明所設定的本機端點協定與流程；不能推出它背後使用何種模型或遠端服務。

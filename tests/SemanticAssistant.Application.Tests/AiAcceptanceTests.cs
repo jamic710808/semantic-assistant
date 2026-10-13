@@ -71,6 +71,25 @@ public sealed class AiAcceptanceTests
     }
 
     [Fact]
+    public async Task QueryBeforeMetadataCannotPassEvenWhenFinalResponseAndBothToolsSucceed()
+    {
+        var report = await new AiAcceptanceVerifier(Profile, new Credentials(), new FixtureHandler { QueryBeforeMetadata = true })
+            .RunAsync(true, true, true, true);
+        Assert.Equal("failed", report.Gates.Single(g => g.Id == "tool-roundtrip").Status);
+        Assert.Equal(1, report.Gates.Single(g => g.Id == "tool-roundtrip").Queries);
+        Assert.All(report.Gates.Where(g => g.Id is "cancel-on-text" or "revoke-on-text"), g => Assert.Equal("not-run", g.Status));
+    }
+
+    [Fact]
+    public async Task RejectedToolCannotBeHiddenByLaterSuccessfulQueryAndResponse()
+    {
+        var report = await new AiAcceptanceVerifier(Profile, new Credentials(), new FixtureHandler { IncludeUnknownTool = true })
+            .RunAsync(true, true, true, true);
+        Assert.Equal("failed", report.Gates.Single(g => g.Id == "tool-roundtrip").Status);
+        Assert.Equal(1, report.Gates.Single(g => g.Id == "tool-roundtrip").Queries);
+    }
+
+    [Fact]
     public async Task RemoteErrorBodiesAndCredentialValuesNeverEnterVerificationReport()
     {
         var report = await new AiAcceptanceVerifier(Profile, new Credentials(), new FixtureHandler { Fail = true })
@@ -128,6 +147,8 @@ public sealed class AiAcceptanceTests
     {
         public bool SkipTools { get; init; }
         public bool Fail { get; init; }
+        public bool QueryBeforeMetadata { get; init; }
+        public bool IncludeUnknownTool { get; init; }
         public int Requests { get; private set; }
         public bool SawMultiToolResults { get; private set; }
         public bool SawQueryRows { get; private set; }
@@ -144,11 +165,16 @@ public sealed class AiAcceptanceTests
             var queryReturned = results.Any(r => r.GetProperty("content").GetString()!.Contains("\"Rows\":", StringComparison.Ordinal));
             SawQueryRows |= queryReturned;
             string sse;
-            if (!SkipTools && user.Contains(DemoModel.SupportedQuery, StringComparison.Ordinal) && !queryReturned)
+            if (!SkipTools && user.Contains(DemoModel.SupportedQuery, StringComparison.Ordinal) &&
+                (!queryReturned || QueryBeforeMetadata && results.Length == 1))
             {
                 var calls = results.Length == 0
                     ? new[] { ("table-sales", "get_table_details", "{\"table\":\"銷售\"}"), ("table-dates", "get_table_details", "{\"table\":\"日期\"}") }
                     : new[] { ("query", "execute_dax_query", JsonSerializer.Serialize(new { dax = DemoModel.SupportedQuery })) };
+                if (QueryBeforeMetadata) calls = results.Length == 0
+                    ? [("query", "execute_dax_query", JsonSerializer.Serialize(new { dax = DemoModel.SupportedQuery }))]
+                    : [("table-sales", "get_table_details", "{\"table\":\"銷售\"}")];
+                if (IncludeUnknownTool && results.Length == 0) calls = [.. calls, ("unsupported", "unsupported_synthetic_tool", "{}")];
                 sse = "";
                 for (var i = 0; i < calls.Length; i++)
                 {
