@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../SemanticAssistant.Adapters.Demo/SemanticAssistant.Adapters.Demo.csproj" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SemanticAssistant.Cli/SemanticAssistant.Cli.csproj" ReferenceOutputAssembly="false" />
+    <Content Include="../SemanticAssistant.Cli/bin/$(Configuration)/net10.0/SemanticAssistant.Cli.dll;../SemanticAssistant.Cli/bin/$(Configuration)/net10.0/SemanticAssistant.Cli.deps.json;../SemanticAssistant.Cli/bin/$(Configuration)/net10.0/SemanticAssistant.Cli.runtimeconfig.json">
+      <Link>%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory><CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SemanticAssistant.Adapters.Mcp/SemanticAssistant.Adapters.Mcp.csproj" />
+    <ProjectReference Include="../SemanticAssistant.Adapters.AI/SemanticAssistant.Adapters.AI.csproj" />
+    <ProjectReference Include="../SemanticAssistant.Adapters.PowerBI.Local/SemanticAssistant.Adapters.PowerBI.Local.csproj" />
+    <ProjectReference Include="../SemanticAssistant.Adapters.PowerBI.Cloud/SemanticAssistant.Adapters.PowerBI.Cloud.csproj" />
+    <ProjectReference Include="../SemanticAssistant.Adapters.PowerBI.Files/SemanticAssistant.Adapters.PowerBI.Files.csproj" />
+    <Content Include="../../examples/synthetic-model/definition/**/*.tmdl">
+      <Link>Examples/definition/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

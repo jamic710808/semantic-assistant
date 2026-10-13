@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SemanticAssistant.Adapters.Mcp/SemanticAssistant.Adapters.Mcp.csproj" />
+    <Project Path="src/SemanticAssistant.Adapters.AI/SemanticAssistant.Adapters.AI.csproj" />
+    <Project Path="src/SemanticAssistant.Adapters.PowerBI.Local/SemanticAssistant.Adapters.PowerBI.Local.csproj" />
+    <Project Path="src/SemanticAssistant.Adapters.PowerBI.Cloud/SemanticAssistant.Adapters.PowerBI.Cloud.csproj" />
+    <Project Path="src/SemanticAssistant.Adapters.Demo/SemanticAssistant.Adapters.Demo.csproj" />
+    <Project Path="src/SemanticAssistant.Adapters.PowerBI.Files/SemanticAssistant.Adapters.PowerBI.Files.csproj" />
+    <Project Path="src/SemanticAssistant.Application/SemanticAssistant.Application.csproj" />
+    <Project Path="src/SemanticAssistant.Cli/SemanticAssistant.Cli.csproj" />
+    <Project Path="src/SemanticAssistant.Contracts/SemanticAssistant.Contracts.csproj" />
+    <Project Path="src/SemanticAssistant.Desktop/SemanticAssistant.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SemanticAssistant.PowerBIFixture/SemanticAssistant.PowerBIFixture.csproj" />
+    <Project Path="tests/SemanticAssistant.FixtureHost/SemanticAssistant.FixtureHost.csproj" />
+    <Project Path="tests/SemanticAssistant.Application.Tests/SemanticAssistant.Application.Tests.csproj" />
+  </Folder>
+</Solution>

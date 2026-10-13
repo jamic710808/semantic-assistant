@@ -1,0 +1,28 @@
+name: Verify and prepare source preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-preview:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Verify application with synthetic data
+        shell: pwsh
+        run: ./scripts/Verify.ps1
+      - name: Verify dependency inventory and repeatable source archive
+        shell: pwsh
+        run: ./scripts/Verify-Release.ps1 -BuildExtracted
+      - name: Prepare named source candidate
+        shell: pwsh
+        run: ./scripts/New-SourceRelease.ps1 -Name semantic-assistant-source-preview
+      - uses: actions/upload-artifact@v4
+        with:
+          name: semantic-assistant-source-preview
+          path: |
+            artifacts/releases/semantic-assistant-source-preview.*
+          if-no-files-found: error

@@ -1,0 +1,24 @@
+name: Build and verify desktop and offline viewer
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  windows-demo:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Verify core, CLI and WPF demo
+        shell: pwsh
+        run: ./scripts/Verify.ps1
+      - name: Package desktop source build
+        shell: pwsh
+        run: dotnet publish src/SemanticAssistant.Desktop -c Release --no-restore -o artifacts/desktop
+      - name: Verify packaged settings, MCP import, history, modes, Dashboard, AI proposal and MCP schema helper
+        shell: pwsh
+        run: ./scripts/Verify-Package.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m1-windows-evidence
+          path: artifacts/

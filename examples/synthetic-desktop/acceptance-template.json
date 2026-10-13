@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "fixture": "desktop-v1",
+  "desktopVersion": null,
+  "fixtureDirectory": null,
+  "fixtureManifestSha256": null,
+  "notes": "Record only observed operations against the independent synthetic fixture; do not include keys or tokens.",
+  "gates": [
+    { "id": "desktop-open-refresh", "status": "Pending", "evidence": null },
+    { "id": "fixture-dax-four-cases", "status": "Pending", "evidence": null },
+    { "id": "assistant-desktop-metadata", "status": "Pending", "evidence": null },
+    { "id": "assistant-adomd-query-limits", "status": "Pending", "evidence": null },
+    { "id": "source-change-cancellation", "status": "Pending", "evidence": null },
+    { "id": "ai-streaming-egress-real-provider", "status": "Pending", "evidence": null },
+    { "id": "tom-measure-write-readback", "status": "Pending", "evidence": null },
+    { "id": "tom-column-relationship-write", "status": "Pending", "evidence": null },
+    { "id": "revision-integrity-conflict", "status": "Pending", "evidence": null },
+    { "id": "partial-failure-repair", "status": "Pending", "evidence": null },
+    { "id": "dashboard-native-query-export", "status": "Pending", "evidence": null },
+    { "id": "dynamic-html-visual-slicer", "status": "Pending", "evidence": null }
+  ]
+}

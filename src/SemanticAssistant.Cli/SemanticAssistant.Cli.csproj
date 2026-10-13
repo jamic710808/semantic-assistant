@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../SemanticAssistant.Adapters.Demo/SemanticAssistant.Adapters.Demo.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../SemanticAssistant.Adapters.PowerBI.Files/SemanticAssistant.Adapters.PowerBI.Files.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../SemanticAssistant.Adapters.Mcp/SemanticAssistant.Adapters.Mcp.csproj" /></ItemGroup>
+</Project>

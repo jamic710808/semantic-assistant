@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <ItemGroup>
+  <ProjectReference Include="../SemanticAssistant.Application/SemanticAssistant.Application.csproj" />
+  <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
+ </ItemGroup>
+</Project>

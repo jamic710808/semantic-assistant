@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../SemanticAssistant.Application/SemanticAssistant.Application.csproj" />
+    <PackageReference Include="Microsoft.AnalysisServices" Version="19.118.3" />
+  </ItemGroup>
+</Project>

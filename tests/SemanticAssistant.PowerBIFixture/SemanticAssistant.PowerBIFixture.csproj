@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SemanticAssistant.Adapters.PowerBI.Files/SemanticAssistant.Adapters.PowerBI.Files.csproj" />
+    <ProjectReference Include="../../src/SemanticAssistant.Adapters.PowerBI.Local/SemanticAssistant.Adapters.PowerBI.Local.csproj" />
+  </ItemGroup>
+</Project>

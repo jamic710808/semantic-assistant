@@ -1,0 +1,33 @@
+Semantic Assistant
+Copyright (c) 2026 Semantic Assistant contributors
+
+The independently written source and documentation in this repository are
+provided under LICENSE (MIT). Third-party dependencies retain their own
+licenses, copyright notices and conditions. MIT does not relicense those
+dependencies or any vendor product analyzed in the documentation.
+
+This project is independently maintained. It is not an official distribution
+of ABI Assistant, Power BI, Microsoft, or json-everything. No ABI Assistant
+binaries, resources, templates, prompts or decompiled implementations are
+included. Static analysis is not a strict clean-room process or evidence of
+full functional equivalence.
+
+NuGet package license metadata, exact versions and content hashes are listed
+in docs/dependencies.json. Run scripts/Get-DependencyReport.ps1 after locked
+restore to regenerate an inventory from the local NuGet cache. It also records
+the package's bundled license/notice files and hashes without inferring a
+license from a package name.
+
+Important distribution conditions:
+- JsonSchema.Net 9.4.0, JsonPointer.Net 7.0.2 and Json.More.Net 3.0.1 include
+  OSMFEULA.txt. Their upstream source is MIT, while the upstream binary release
+  carries maintenance-fee terms. Consult the exact package agreement and
+  docs/release.md; do not label the downloaded binary package as MIT-only.
+- Microsoft.AnalysisServices and Microsoft.AnalysisServices.AdomdClient
+  19.118.3 declare separate Microsoft license URLs. Their terms must be
+  reviewed for binary redistribution. The source archive contains no such DLLs.
+- Test SDK and xUnit packages are development dependencies and are not
+  included in the source archive as binaries.
+
+The release script creates a source archive with manifests and dependency
+metadata. It does not publish a GitHub release or authorize binary distribution.

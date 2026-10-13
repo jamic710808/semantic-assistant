@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <ItemGroup>
+  <ProjectReference Include="../SemanticAssistant.Adapters.PowerBI.Local/SemanticAssistant.Adapters.PowerBI.Local.csproj" />
+  <PackageReference Include="Microsoft.Identity.Client" Version="4.83.3" />
+  <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+ </ItemGroup>
+</Project>

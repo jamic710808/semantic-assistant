@@ -1,0 +1,5 @@
+table SyntheticDates
+
+	column Date
+		dataType: dateTime
+		sourceColumn: Date

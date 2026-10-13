@@ -1,0 +1,11 @@
+table SyntheticSales
+
+	measure Total = SUM('SyntheticSales'[Amount])
+
+	column Amount
+		dataType: decimal
+		sourceColumn: Amount
+
+	column Date
+		dataType: dateTime
+		sourceColumn: Date
