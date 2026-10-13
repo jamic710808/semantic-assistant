@@ -1,5 +1,7 @@
 # 原始架構覆蓋與完成條件
 
+最新追加：[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收，下列仍將儲存／重開列為待驗收的段落屬於早期狀態。Assistant原生UI、真實AI／雲端及其他缺口仍保留。
+
 ## 目前狀態：r11 發佈後核對（2026-10-13）
 
 來源已公開於 [GitHub](https://github.com/jamic710808/semantic-assistant)，[來源預覽版 r11](https://github.com/jamic710808/semantic-assistant/releases/tag/source-preview-r11) 對應提交 `53da1896b260d9d9260fcd216b2d9e7d79347b85`。181 個來源檔案、23 個相依套件；457項測試、12條WPF與8條封裝流程通過；兩條GitHub CI成功，本機／CI／下載ZIP雜湊相同。因此，本文下方「remote／CI／公開release尚未完成」已是歷史狀態，不能當作目前缺口。

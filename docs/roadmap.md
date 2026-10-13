@@ -1,5 +1,7 @@
 # 實作分期與驗收
 
+最新追加：[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收。首次失敗與修正證據保留；Assistant原生UI、私人模型及外部AI／雲端仍待驗收。
+
 ## 最新核對（2026-10-13）
 
 公開來源、GitHub CI與[來源預覽版 r11](https://github.com/jamic710808/semantic-assistant/releases/tag/source-preview-r11)已完成；下文的「尚未發佈／CI未執行／token持久化未完成」保留為分期歷史，不代表目前狀態。r11有457項測試、12條WPF、8條封裝流程及跨本機／CI一致ZIP證據；完整產品仍待真實AI、雲端及部分Desktop/UI驗收。

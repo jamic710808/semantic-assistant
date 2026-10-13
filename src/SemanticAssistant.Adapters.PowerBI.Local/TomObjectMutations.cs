@@ -64,6 +64,10 @@ public static class TomObjectMutations
         Owner(a) != DefinitionRules.Owner || a.FirstOrDefault(x => x.Name == DefinitionRules.IntegrityAnnotation)?.Value == Integrity(obj);
     private static void Mark<T>(MetadataObject obj, NamedMetadataObjectCollection<Annotation, T> a, Guid operation) where T : MetadataObject
     {
+        // Desktop assigns missing lineage tags when saving PBIP. Assign them before sealing
+        // our objects so save/reopen preserves integrity; existing identity remains covered.
+        if (obj is Measure measure && string.IsNullOrWhiteSpace(measure.LineageTag)) measure.LineageTag = Guid.NewGuid().ToString();
+        if (obj is CalculatedColumn column && string.IsNullOrWhiteSpace(column.LineageTag)) column.LineageTag = Guid.NewGuid().ToString();
         Set(a, DefinitionRules.OwnerAnnotation, DefinitionRules.Owner); Set(a, DefinitionRules.OperationAnnotation, operation.ToString());
         Set(a, DefinitionRules.IntegrityAnnotation, Integrity(obj));
     }

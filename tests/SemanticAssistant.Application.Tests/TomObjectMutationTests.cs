@@ -10,6 +10,28 @@ namespace SemanticAssistant.Application.Tests;
 public sealed class TomObjectMutationTests
 {
     [Fact]
+    public void LineageIsAssignedBeforeSealingAndIdentityChangesRemainConflicts()
+    {
+        using var db = Database();
+        var measure = new Measure { Name = "SA_identity", Expression = "1" };
+        db.Model.Tables[0].Measures.Add(measure);
+        TomObjectMutations.MarkMeasure(measure, Guid.NewGuid());
+        Assert.True(Guid.TryParse(measure.LineageTag, out _));
+        var original = measure.LineageTag;
+        TomObjectMutations.MarkMeasure(measure, Guid.NewGuid());
+        Assert.Equal(original, measure.LineageTag);
+        Assert.True(TomObjectMutations.ReadMeasure(measure).IntegrityValid);
+        measure.LineageTag = Guid.NewGuid().ToString();
+        Assert.False(TomObjectMutations.ReadMeasure(measure).IntegrityValid);
+        var plan = Plan(Read(db));
+        TomObjectMutations.StageApply(db.Model, plan);
+        var column = Assert.IsType<CalculatedColumn>(db.Model.Tables[0].Columns[1]);
+        Assert.True(Guid.TryParse(column.LineageTag, out _));
+        Assert.True(TomObjectMutations.ReadColumn(column).IntegrityValid);
+        column.LineageTag = Guid.NewGuid().ToString();
+        Assert.False(TomObjectMutations.ReadColumn(column).IntegrityValid);
+    }
+    [Fact]
     public void ServerInferredPropertiesDoNotBreakDefinitionIntegrity()
     {
         using var database = SemanticAssistant.PowerBIFixture.SyntheticDesktopFixture.CreateDatabase();

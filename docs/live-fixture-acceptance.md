@@ -1,5 +1,7 @@
 # 獨立合成 Power BI 測試專案與真機驗收
 
+最新追加：[保存／關閉／重開驗收](desktop-persistence-acceptance.md)已在獨立合成專案通過20項實際唯讀檢查，並修正Lineage Tag保存衝突。下列分期與早期驗收結果保留歷史證據。
+
 日期：2026-10-13。這是自行重寫程式的測試入口。檔案產生、官方 TOM round-trip 與 JSON Schema 檢查已實作；Power BI Desktop 開啟、刷新、DAX 引擎與真實 SaveChanges 不從這些檢查推定完成。
 
 ## 產生全新專案

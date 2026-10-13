@@ -1,4 +1,4 @@
-param()
+param([switch]$KeepOpen)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path $PSScriptRoot -Parent
 $taskSdk = Join-Path (Split-Path $taskRoot -Parent) '.tools\dotnet10\dotnet.exe'
@@ -7,6 +7,7 @@ $taskExe = Join-Path $env:ProgramFiles 'Microsoft Power BI Desktop\bin\PBIDeskto
 if (-not (Test-Path -LiteralPath $taskExe)) { throw 'Power BI Desktop from the Program Files installation is required.' }
 $taskDesktop = $null
 $taskEngine = $null
+$taskVerified = $false
 Push-Location $taskRoot
 try {
     & $taskSdk restore tests\SemanticAssistant.PowerBIFixture --locked-mode -m:1 -nr:false
@@ -58,16 +59,18 @@ try {
     } | ConvertTo-Json | Set-Content -LiteralPath $taskRecord -Encoding utf8
     & $taskSdk $taskDll --verify-owned $taskRecord
     if ($LASTEXITCODE -ne 0) { throw 'Live acceptance failed. Preserve the JSON evidence; do not retry a partially applied write.' }
+    $taskVerified = $true
+    if ($KeepOpen) { Write-Output ('Verified synthetic fixture retained for explicit save/reopen: ' + $taskRecord) }
 } finally {
     # Only processes created for this fixture are eligible for cleanup. Their PID/start time is checked again.
-    if ($taskDesktop) {
+    if ($taskDesktop -and -not ($KeepOpen -and $taskVerified)) {
         $taskCurrent = Get-Process -Id $taskDesktop.Id -ErrorAction SilentlyContinue
         if ($taskCurrent -and $taskCurrent.StartTime.ToUniversalTime().Ticks -eq $taskDesktopTicks) {
             [void]$taskCurrent.CloseMainWindow()
             if (-not $taskCurrent.WaitForExit(3000)) { $taskCurrent.Kill(); [void]$taskCurrent.WaitForExit(3000) }
         }
     }
-    if ($taskEngine) {
+    if ($taskEngine -and -not ($KeepOpen -and $taskVerified)) {
         $taskCurrentEngine = Get-Process -Id $taskEngine.Id -ErrorAction SilentlyContinue
         if ($taskCurrentEngine -and $taskCurrentEngine.StartTime.ToUniversalTime().Ticks -eq $taskEngineTicks) { $taskCurrentEngine.Kill() }
     }

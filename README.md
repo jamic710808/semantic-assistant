@@ -1,5 +1,7 @@
 # Semantic Model Assistant：ABI Assistant 逆向與開源重建
 
+最新驗收：[合成Desktop保存／關閉／重開](docs/desktop-persistence-acceptance.md)20項實際唯讀檢查通過；AI供應商依使用者安排稍後設定。
+
 [![Windows CI](https://github.com/jamic710808/semantic-assistant/actions/workflows/build.yml/badge.svg)](https://github.com/jamic710808/semantic-assistant/actions/workflows/build.yml)
 
 [來源預覽版下載與版本紀錄](https://github.com/jamic710808/semantic-assistant/releases)；[CI 建置與驗證紀錄](https://github.com/jamic710808/semantic-assistant/actions)。

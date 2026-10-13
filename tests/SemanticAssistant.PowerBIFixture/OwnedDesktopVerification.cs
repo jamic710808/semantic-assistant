@@ -16,7 +16,7 @@ public static class OwnedDesktopVerification
     public sealed record OwnedSession(string ProjectPath, string DesktopExe, int DesktopProcessId,
         long DesktopStartedUtcTicks, string DesktopVersion, int EngineProcessId, long EngineStartedUtcTicks, string Workspace);
 
-    public static void ValidateBaseline(Database database, bool allowWrittenObjects = false)
+    public static void ValidateBaseline(Database database, bool allowWrittenObjects = false, bool allowDashboardObjects = false)
     {
         using var expected = SyntheticDesktopFixture.CreateDatabase();
         var model = database.Model;
@@ -30,7 +30,8 @@ public static class OwnedDesktopVerification
             var actual = model.Tables.Find(table.Name) ?? throw new InvalidDataException("Fixture table differs.");
             var userColumns = actual.Columns.Where(c => c is not RowNumberColumn && !(allowWrittenObjects && table.Name == "Sales" && c is CalculatedColumn && c.Name == "SA_FixtureCheck Profit")).ToArray();
             if (userColumns.Length != table.Columns.Count || actual.Columns.OfType<RowNumberColumn>().Count() > 1 ||
-                actual.Measures.Count != table.Measures.Count + (allowWrittenObjects && table.Name == "Sales" && actual.Measures.ContainsName("SA_FixtureCheck Revenue") ? 1 : 0) || actual.Partitions.Count != 1)
+                actual.Measures.Count != table.Measures.Count + (allowWrittenObjects && table.Name == "Sales" && actual.Measures.ContainsName("SA_FixtureCheck Revenue") ? 1 : 0) +
+                    (allowDashboardObjects && table.Name == "Sales" ? PersistenceDesktopVerification.DashboardMeasures.Count(m => actual.Measures.ContainsName(m.Name)) : 0) || actual.Partitions.Count != 1)
                 throw new InvalidDataException($"Fixture shape differs: {table.Name}, columns={actual.Columns.Count}, measures={actual.Measures.Count}, partitions={actual.Partitions.Count}.");
             if (actual.Partitions[0].Source is not MPartitionSource source ||
                 Canonical(source.Expression) != Canonical(((MPartitionSource)table.Partitions[0].Source).Expression))
@@ -214,7 +215,7 @@ public static class OwnedDesktopVerification
 
     // TMDL may normalize indentation; this fixed fixture has no multi-line text literals.
     private static string Canonical(string value) => string.Join("\n", value.Replace("\r\n", "\n").Trim().Split('\n').Select(line => line.Trim()));
-    private static void EnsureOwned(OwnedSession owned)
+    internal static void EnsureOwned(OwnedSession owned)
     {
         if (!OperatingSystem.IsWindows() || Path.GetFileName(owned.ProjectPath) != SyntheticDesktopFixture.ProjectName + ".pbip" ||
             !File.Exists(owned.ProjectPath)) throw new InvalidDataException("Owned fixture project missing.");
