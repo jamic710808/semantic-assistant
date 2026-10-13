@@ -1,6 +1,6 @@
 # Semantic Model Assistant：ABI Assistant 逆向與開源重建
 
-最新驗收：[原生來源選取、模型檢視與單次同意寫入](docs/native-ui-acceptance.md)實際操作通過；[合成Desktop保存／關閉／重開](docs/desktop-persistence-acceptance.md)20項實際唯讀檢查通過。AI供應商依使用者安排稍後設定。
+最新驗收：[原生 Dashboard、獨立同意、匯出與動態 HTML](docs/native-dashboard-acceptance.md)主要操作及七項引擎回讀通過；完整514項回歸與12條WPF流程通過。修正後的介面重測被使用者停止，仍保留待驗收；AI供應商依使用者安排稍後設定。[來源選取與writer](docs/native-ui-acceptance.md)、[保存／關閉／重開](docs/desktop-persistence-acceptance.md)的既有證據保留。
 
 [![Windows CI](https://github.com/jamic710808/semantic-assistant/actions/workflows/build.yml/badge.svg)](https://github.com/jamic710808/semantic-assistant/actions/workflows/build.yml)
 

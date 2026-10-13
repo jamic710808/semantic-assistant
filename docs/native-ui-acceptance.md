@@ -52,4 +52,4 @@ dotnet run --project tests/SemanticAssistant.PowerBIFixture -c Release -- --veri
 
 最初衍生 WPF App 載入資源失敗；改用產品原本的 App 並注入建窗函式。`startup-failure.json` 保留階段／例外型別／有限方法名稱，不保存原始伺服器錯誤。硬體繪製空白後改為驗收宿主 SoftwareOnly，未修改一般產品呈現設定。
 
-本次涵蓋來源選取、模型檢視、模式撤銷與 writer。Dashboard 原生操作、AI 設定／外送同意表單與真實串流、原生查詢取消／PID 競態、引擎故障修復、雲端、Power BI 自訂 HTML 視覺與切片器仍待分別驗收。沒有操作私人報表，沒有宣稱與 ABI 所有功能等價。
+本次涵蓋來源選取、模型檢視、模式撤銷與 writer。後續[原生 Dashboard 操作與引擎回讀](native-dashboard-acceptance.md)已完成主要流程；修正後介面重測被使用者停止而仍待驗收。AI 設定／外送同意表單與真實串流、原生查詢取消／PID 競態、引擎故障修復、雲端、Power BI 自訂 HTML 視覺與切片器仍待分別驗收。沒有操作私人報表，沒有宣稱與 ABI 所有功能等價。

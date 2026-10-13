@@ -98,6 +98,8 @@ internal sealed class DashboardWindow : Window
     private void ResetPlan()
     {
         draft = null; outcome = null; result = null; report = null; ExportPath = null;
+        previewText.Clear();
+        status.Text = "計畫與查詢結果已清除；請重新檢查計畫並逐項同意。";
         allowWrite.IsChecked = allowQuery.IsChecked = allowExport.IsChecked = false; SetBusy(running is not null);
     }
     private void UpdateGrants(params Capability[] grants) => session.Update(session.Snapshot.Target, ConversationMode.Report, grants.ToImmutableHashSet());
@@ -221,6 +223,13 @@ internal sealed class DashboardWindow : Window
     internal async Task RunSyntheticSmokeAsync(string? previewPath = null)
     {
         await PrepareAsync(); if (draft is null) throw new InvalidOperationException("Dashboard preview failed.");
+        allowWrite.IsChecked = allowQuery.IsChecked = allowExport.IsChecked = true;
+        input.Text += "\n";
+        if (draft is not null || outcome is not null || result is not null || report is not null ||
+            previewText.Text.Length != 0 || allowWrite.IsChecked == true || allowQuery.IsChecked == true || allowExport.IsChecked == true ||
+            apply.IsEnabled || query.IsEnabled || export.IsEnabled)
+            throw new InvalidOperationException("Edited Dashboard retained preview or consent.");
+        await PrepareAsync(); if (draft is null) throw new InvalidOperationException("Dashboard preview after edit failed.");
         await ApplyAsync(); if (Attempted) throw new InvalidOperationException("Write without consent.");
         allowWrite.IsChecked = true; await ApplyAsync(); if (outcome?.Success != true) throw new InvalidOperationException("Dashboard write failed.");
         var dynamicChange = await PrepareDynamicHtmlAsync(default);
@@ -256,7 +265,7 @@ internal sealed class DashboardWindow : Window
         try { await staleWriter.RunStalePreviewSmokeAsync(); }
         finally { staleWriter.Close(); }
         Attempted |= dynamicWriter.Attempted; ResetPlan();
-        if (draft is not null || result is not null || report is not null || allowExport.IsChecked == true)
+        if (draft is not null || result is not null || report is not null || allowExport.IsChecked == true || previewText.Text.Length != 0)
             throw new InvalidOperationException("Dynamic write retained old result/plan.");
     }
     private void SavePreview(string path)

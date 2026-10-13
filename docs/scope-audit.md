@@ -1,8 +1,10 @@
 # 原始架構覆蓋與完成條件
 
-最新追加：[原生來源选取與writer](native-ui-acceptance.md)已完成實際操作與獨立引擎回讀；[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收。原生Dashboard／AI表單／取消競態、真實AI／雲端及其他缺口仍保留。下列仍將全部原生UI或儲存／重開列為待驗收的段落屬於早期狀態；本輪504項回歸與12條合成WPF流程通過。
+當前補充：[原生 Dashboard](native-dashboard-acceptance.md)已實際完成計畫、三指標寫入、分別同意查詢／匯出、固定快照預覽取消及動態HTML獨立寫入；七項引擎回讀通過。修正過期預覽文字後514項回歸與12條WPF通過，原生重測被使用者停止。真實AI／雲端、查詢取消競態、引擎修復、任意計畫及Power BI自訂HTML視覺仍未驗收；整體目標未完成。
 
-## 目前狀態：r11 發佈後核對（2026-10-13）
+前輪追加：[原生來源選取與writer](native-ui-acceptance.md)已完成實際操作與獨立引擎回讀；[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收。當時原生Dashboard／AI表單／取消競態、真實AI／雲端及其他缺口仍保留，504項回歸與12條合成WPF流程通過；Dashboard後續進展以本頁最上方補充為準。
+
+## r11 發佈後核對（2026-10-13；歷史快照）
 
 來源已公開於 [GitHub](https://github.com/jamic710808/semantic-assistant)，[來源預覽版 r11](https://github.com/jamic710808/semantic-assistant/releases/tag/source-preview-r11) 對應提交 `53da1896b260d9d9260fcd216b2d9e7d79347b85`。181 個來源檔案、23 個相依套件；457項測試、12條WPF與8條封裝流程通過；兩條GitHub CI成功，本機／CI／下載ZIP雜湊相同。因此，本文下方「remote／CI／公開release尚未完成」已是歷史狀態，不能當作目前缺口。
 

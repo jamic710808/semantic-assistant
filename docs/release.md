@@ -1,6 +1,6 @@
 # 原始碼授權、相依套件與來源封裝
 
-日期：2026-10-13。自行重寫的來源與文件採 MIT，見根目錄 `LICENSE`／`NOTICE`。這是本專案的授權決策；第三方套件各自保留其條件。尚無 remote、commit、公開 release 或已執行的 GitHub CI。
+日期：2026-10-13。自行重寫的來源與文件採 MIT，見根目錄 `LICENSE`／`NOTICE`。這是本專案的授權決策；第三方套件各自保留其條件。來源已公開於 [jamic710808/semantic-assistant](https://github.com/jamic710808/semantic-assistant)，[來源預覽版](https://github.com/jamic710808/semantic-assistant/releases)及兩條實際 GitHub CI 已有成功證據；最新功能驗收與待驗收界線見 README。來源發佈不表示整體產品或第三方二進位分發條件已完成。
 
 ## 可直接執行
 

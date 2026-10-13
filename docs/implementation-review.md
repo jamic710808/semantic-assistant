@@ -1,5 +1,7 @@
 # 實作覆蓋與接續審查
 
+最新覆蓋以[scope-audit](scope-audit.md)及[原生 Dashboard 驗收](native-dashboard-acceptance.md)為準：自建Desktop的正式DAX、動態HTML篩選、保存／重開及部分原生操作已有實際證據，來源與CI已公開。修正後介面重測因Esc停止，真實AI／雲端與Power BI自訂HTML視覺仍待驗收。下列呼叫鏈與未連線／未發佈描述保留為早期實作審查快照。
+
 日期：2026-10-13。這份文件記錄目前自行重寫的實作狀態，不把原廠不可觀察的方法本體推測成事實。
 
 ## 結論

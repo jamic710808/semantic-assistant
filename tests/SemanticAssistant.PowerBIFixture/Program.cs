@@ -1,5 +1,7 @@
 using SemanticAssistant.PowerBIFixture;
 
+if (args.Length == 2 && args[0] == "--verify-native-dashboard-owned")
+    return await NativeDashboardReadbackVerification.RunAsync(args[1]);
 if (args.Length == 2 && args[0] == "--verify-native-writer-owned")
     return await NativeWriterReadbackVerification.RunAsync(args[1]);
 if (args.Length == 2 && args[0] == "--prepare-ui-owned")

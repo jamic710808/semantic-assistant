@@ -1,5 +1,7 @@
 # 本機驗證紀錄
 
+最新補充：原生 Dashboard 主要流程、獨立同意與動態 HTML 已操作驗收；七項實際引擎回讀通過。編輯／子寫入後舊預覽文字已修正，新增十項定義回歸，完整 **514 passed / 0 failed / 0 skipped**、12 條 WPF 流程通過。修正後原生重測被使用者以 Esc 停止，不宣稱通過。詳細證據與接續界線見[原生 Dashboard 驗收](native-dashboard-acceptance.md)。下方504項及更早狀態為歷史紀錄。
+
 最新補充（2026-10-13）：[原生介面獨立驗收](native-ui-acceptance.md)完成自有 Desktop 選取／取消、結構搜尋／定義、模式撤銷、writer 預覽／未同意拒絕／實際三物件寫入及回讀。一般回歸為 **504 passed / 0 failed / 0 skipped**，12 條 WPF 合成流程全部通過；`artifacts/verification-native-ui.log`。AI 預檢無 HTTP、憑證讀取、模型讀取或查詢。新增的原生宿主使用軟體繪製，未把自動建窗當成 UI 驗收；原生操作與引擎證據分開。下列各輪數字、未連線描述與 CI／發佈缺口為歷史快照，當前公開狀態見 README、release 與保存／重開文件。
 
 日期：2026-10-13；Windows、獨立安裝的 .NET SDK 10.0.401。

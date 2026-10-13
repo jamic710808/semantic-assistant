@@ -10,9 +10,9 @@ namespace SemanticAssistant.PowerBIFixture;
 // Read-only engine evidence. UI observations are a separate acceptance artifact.
 public static class NativeWriterReadbackVerification
 {
-    public static void ValidateDefinitions(Database database)
+    public static void ValidateDefinitions(Database database, bool allowDashboardObjects = false)
     {
-        OwnedDesktopVerification.ValidateBaseline(database, allowWrittenObjects: true);
+        OwnedDesktopVerification.ValidateBaseline(database, allowWrittenObjects: true, allowDashboardObjects: allowDashboardObjects);
         var changes = SyntheticDesktopFixture.ObjectChanges;
         var sales = database.Model.Tables["Sales"];
         var measure = TomObjectMutations.ReadMeasure(sales.Measures[changes.Measures[0].Name]);
