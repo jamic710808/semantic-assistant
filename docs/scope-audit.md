@@ -1,5 +1,7 @@
 # 原始架構覆蓋與完成條件
 
+最新補強：[自有Desktop查詢驗收](owned-query-acceptance.md)新增完整結果預算與adapter自身deadline，528項回歸、16個正式引擎／guard檢查點通過。僅驗收命令提交前的取消、實際結果限制與注入來源遺失；真正查詢中取消、PID競態及故障修復未完成。
+
 當前補充：[原生 Dashboard](native-dashboard-acceptance.md)已實際完成計畫、三指標寫入、分別同意查詢／匯出、固定快照預覽取消及動態HTML獨立寫入；七項引擎回讀通過。修正過期預覽文字後514項回歸與12條WPF通過，原生重測被使用者停止。真實AI／雲端、查詢取消競態、引擎修復、任意計畫及Power BI自訂HTML視覺仍未驗收；整體目標未完成。
 
 前輪追加：[原生來源選取與writer](native-ui-acceptance.md)已完成實際操作與獨立引擎回讀；[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收。當時原生Dashboard／AI表單／取消競態、真實AI／雲端及其他缺口仍保留，504項回歸與12條合成WPF流程通過；Dashboard後續進展以本頁最上方補充為準。

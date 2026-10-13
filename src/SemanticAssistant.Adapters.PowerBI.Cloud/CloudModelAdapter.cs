@@ -110,19 +110,14 @@ public sealed class CloudModelAdapter : ISemanticModelReader, IReadOnlyDaxQueryR
             var data = table.GetProperty("rows").EnumerateArray().ToArray();
             var columns = data.SelectMany(r => r.EnumerateObject().Select(p => p.Name)).Distinct(StringComparer.Ordinal).Take(65).ToImmutableArray();
             if (columns.Length > 64 || (columns.IsEmpty && data.Length > 0)) throw new CloudServiceException();
-            var rows = ImmutableArray.CreateBuilder<ImmutableArray<JsonElement>>();
-            var id = Guid.NewGuid().ToString("N"); bool truncated = data.Length > limits.MaxRows;
-            foreach (var source in data.Take(limits.MaxRows))
+            var buffer = new QueryResultBuffer(target, columns, dax, limits);
+            foreach (var source in data)
             {
-                var row = columns.Select(c => source.TryGetProperty(c, out var value) ? value.Clone() : ContractJson.Element<object?>(null)).ToImmutableArray();
-                if (row.Any(v => v.ValueKind is JsonValueKind.Array or JsonValueKind.Object or JsonValueKind.Undefined)) throw new CloudServiceException();
-                rows.Add(row);
-                if (JsonSerializer.SerializeToUtf8Bytes(new QueryResult(id, target, columns, rows.ToImmutable(), true, dax)).Length > limits.MaxBytes)
-                { rows.RemoveAt(rows.Count - 1); truncated = true; break; }
+                if (!buffer.TryAdd(() => columns.Select(c => source.TryGetProperty(c, out var value) ? value.Clone() : ContractJson.Element<object?>(null)).ToImmutableArray())) break;
             }
-            return new(id, target, columns, rows.ToImmutable(), truncated, dax);
+            return buffer.Build();
         }
-        catch (Exception error) when (error is InvalidOperationException or KeyNotFoundException or FormatException)
+        catch (Exception error) when (error is InvalidOperationException or KeyNotFoundException or FormatException or InvalidDataException)
         { throw new CloudServiceException(); }
     }
     public void Dispose() => rest.Dispose();

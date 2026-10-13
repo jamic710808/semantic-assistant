@@ -59,6 +59,7 @@ public sealed class DesktopModelAdapter(DesktopInstance instance, string catalog
     private ModelSnapshot Read(CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); discovery.EnsureCurrent(instance);
+        token.ThrowIfCancellationRequested();
         using var server = new Server(); server.Connect(Connection(instance));
         var database = server.Databases.Cast<Database>().SingleOrDefault(d => d.ID == catalogId) ?? throw new IOException("語意模型已關閉。");
         var tables = database.Model.Tables.Select(t => new TableDefinition(t.Name,
@@ -68,17 +69,27 @@ public sealed class DesktopModelAdapter(DesktopInstance instance, string catalog
             r.Name, r.FromColumn.Table.Name, r.FromColumn.Name, r.ToColumn.Table.Name, r.ToColumn.Name, r.IsActive,
             r.FromCardinality.ToString(), r.ToCardinality.ToString(), r.CrossFilteringBehavior.ToString(), r.SecurityFilteringBehavior.ToString())).ToImmutableArray();
         token.ThrowIfCancellationRequested(); discovery.EnsureCurrent(instance);
+        token.ThrowIfCancellationRequested();
         var revision = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { tables, relationships }))).ToLowerInvariant();
         var id = $"desktop:{instance.Owner.ProcessId}:{instance.Owner.StartedUtcTicks}:{instance.Owner.Port}:{catalogId}";
         return new(new(id, database.Name, revision, false), tables) { Relationships = relationships };
     }
 
-    public Task<QueryResult> ExecuteAsync(ModelIdentity target, string dax, QueryLimits limits, CancellationToken token)
+    public async Task<QueryResult> ExecuteAsync(ModelIdentity target, string dax, QueryLimits limits, CancellationToken token)
     {
         ReadOnlyDax.Validate(dax);
         if (limits.MaxRows is < 1 or > 100 || limits.MaxBytes is < 1024 or > 64_000 || limits.EffectiveTimeout <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(limits));
-        return Task.Run(() => Execute(target, dax, limits, token), token);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(limits.EffectiveTimeout);
+        try
+        {
+            var result = await Task.Run(() => Execute(target, dax, limits, deadline.Token), deadline.Token).ConfigureAwait(false);
+            deadline.Token.ThrowIfCancellationRequested();
+            return result;
+        }
+        catch (Exception) when (deadline.IsCancellationRequested)
+        { throw new OperationCanceledException(deadline.Token); }
     }
 
     private QueryResult Execute(ModelIdentity target, string dax, QueryLimits limits, CancellationToken token)
@@ -88,6 +99,7 @@ public sealed class DesktopModelAdapter(DesktopInstance instance, string catalog
         using var connection = new AdomdConnection(Connection(instance, catalogId));
         connection.Open();
         token.ThrowIfCancellationRequested(); discovery.EnsureCurrent(instance);
+        token.ThrowIfCancellationRequested();
         using var command = connection.CreateCommand();
         command.CommandText = dax;
         command.CommandTimeout = Math.Max(1, (int)Math.Ceiling(limits.EffectiveTimeout.TotalSeconds));
@@ -96,28 +108,25 @@ public sealed class DesktopModelAdapter(DesktopInstance instance, string catalog
         using var reader = command.ExecuteReader(CommandBehavior.SingleResult);
         if (reader.FieldCount is < 1 or > 64) throw new InvalidDataException("查詢欄位數超限。");
         var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToImmutableArray();
-        var rows = ImmutableArray.CreateBuilder<ImmutableArray<JsonElement>>();
-        var resultId = Guid.NewGuid().ToString("N");
-        bool truncated = false;
+        var buffer = new QueryResultBuffer(target, columns, dax, limits);
         while (reader.Read())
         {
             token.ThrowIfCancellationRequested();
-            if (rows.Count >= limits.MaxRows) { truncated = true; break; }
-            var row = ImmutableArray.CreateBuilder<JsonElement>();
-            for (var i = 0; i < reader.FieldCount; i++)
+            if (!buffer.TryAdd(() =>
             {
-                var value = reader.GetValue(i);
-                if (value is string text && text.Length > limits.MaxBytes) throw new InvalidDataException("單值超過大小上限。");
-                row.Add(value is DBNull ? ContractJson.Element<object?>(null) : JsonSerializer.SerializeToElement(value, value.GetType()));
-            }
-            rows.Add(row.ToImmutable());
-            var candidate = new QueryResult(resultId, target, columns, rows.ToImmutable(), true, dax);
-            if (JsonSerializer.SerializeToUtf8Bytes(candidate).Length > limits.MaxBytes)
-            { rows.RemoveAt(rows.Count - 1); truncated = true; break; }
+                var row = ImmutableArray.CreateBuilder<JsonElement>();
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    var value = reader.GetValue(i);
+                    if (value is string text && text.Length > limits.MaxBytes) throw new InvalidDataException("單值超過大小上限。");
+                    row.Add(value is DBNull ? ContractJson.Element<object?>(null) : JsonSerializer.SerializeToElement(value, value.GetType()));
+                }
+                return row.ToImmutable();
+            })) break;
         }
         token.ThrowIfCancellationRequested();
         if (Read(token).Identity != target) throw new IOException("查詢期間模型結構已改變，結果已丟棄。");
-        return new(resultId, target, columns, rows.ToImmutable(), truncated, dax);
+        return buffer.Build();
     }
 }
 

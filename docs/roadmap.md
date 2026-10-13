@@ -1,5 +1,7 @@
 # 實作分期與驗收
 
+最新接續：[自有Desktop查詢驗收](owned-query-acceptance.md)完成結果列數、完整UTF-8封裝限制、直接adapter期限及提交命令前取消；528項回歸、16個檢查點通過。真正查詢中取消、實際程序競態／故障修復與外部服務仍待完成。
+
 當前接續：原生 Dashboard 主要操作與七項引擎回讀已通過，完整514項回歸、12條WPF流程通過；[證據與未驗收項目](native-dashboard-acceptance.md)。使用者停止了修正後介面重測，待恢復；真實AI依安排稍後設定。以下早期分期、未發佈或整體原生UI待驗收描述為歷史快照，當前覆蓋以本段與scope-audit為準。
 
 最新追加：[合成Desktop保存／重開](desktop-persistence-acceptance.md)已通過20項實際唯讀驗收。首次失敗與修正證據保留；Assistant原生UI、私人模型及外部AI／雲端仍待驗收。
