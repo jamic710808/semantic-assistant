@@ -42,6 +42,10 @@
 
 這些失敗均由各次CLI正常退出後才接續診斷；沒有因觀測逾時而另啟動重複查詢。
 
+來源重建後亦通過9項實機檢查，證據：`owned-cancellation-69dd6184d6a248adb17f3fcab2804d7e.json`，同樣沒有私人模型存取。
+
+提交 `935213a` 的建置CI通過，來源CI `38355289679` 在既有Schema隔離程序測試的父程序heartbeat次數失敗（CPU限制錯誤碼已通過）。失敗日誌保留於 `artifacts/cancellation-source-ci-failure.log`。這組真實CPU／時鐘測試改為不與其他測試集合並行，並增加失敗時的heartbeat、wall及CPU診斷；CPU、期限與回應次數門檻均保留。最新提交的CI及ZIP一致性以本機驗收收據為準。
+
 ## 重跑
 
 沿用[自有查詢驗收入口](owned-query-acceptance.md)的固定baseline或原生Dashboard完成後模型形狀：

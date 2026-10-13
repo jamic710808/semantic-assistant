@@ -6,6 +6,12 @@ using Xunit;
 
 namespace SemanticAssistant.Application.Tests;
 
+[CollectionDefinition("Schema worker resources", DisableParallelization = true)]
+public sealed class SchemaWorkerResourceCollection { }
+
+// CPU and wall-clock checks launch real child processes. Run them without unrelated
+// parallel test workloads so parent heartbeat assertions measure this isolation.
+[Collection("Schema worker resources")]
 public sealed class IsolatedSchemaValidatorTests
 {
     private static JsonElement Json(string value) { using var document = JsonDocument.Parse(value); return document.RootElement.Clone(); }
@@ -121,7 +127,8 @@ public sealed class IsolatedSchemaValidatorTests
         var ticks = 0;
         while (!work.IsCompleted && watch.Elapsed < TimeSpan.FromSeconds(9)) { await Task.Delay(50); ticks++; }
         var error = await Assert.ThrowsAsync<SchemaValidationException>(() => work);
-        Assert.Equal("validation_cpu_limit", error.Code); Assert.True(ticks >= 5);
+        Assert.Equal("validation_cpu_limit", error.Code);
+        Assert.True(ticks >= 5, $"Parent heartbeat ticks={ticks}; wall={watch.Elapsed.TotalSeconds:F3}s; helper CPU={validator.LastCpuTime?.TotalSeconds:F3}s.");
         Assert.InRange(validator.LastCpuTime?.TotalSeconds ?? 0, 1.5, 3.5);
         // CPU budget is not wall time. Allow the configured 8s wall deadline plus bounded pipe cleanup.
         Assert.InRange(watch.Elapsed.TotalSeconds, 0.2, 11);
