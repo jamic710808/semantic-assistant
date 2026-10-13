@@ -270,6 +270,43 @@ public sealed class ApplicationTests
     }
 
     [Fact]
+    public async Task ElapsedDeadlineRejectsProviderCallsBeforeCancellationTimerRuns()
+    {
+        var model = new ProbeModel();
+        var clock = new ManualTurnClock();
+        var provider = new ScriptProvider { TwoCalls = true, BeforeOutput = () => clock.Advance(TimeSpan.FromHours(2)) };
+        var session = Session(Capability.DataQuery);
+        var events = new List<ConversationEvent>();
+        var result = await new ConversationCoordinator(model, provider, new(model, model, session), session,
+            new(Timeout: TimeSpan.FromMinutes(1)), turnClock: clock).RunAsync(
+                new(Guid.NewGuid(), "x", ConversationMode.Analyze, session.Snapshot),
+                e => { events.Add(e); return Task.CompletedTask; });
+        Assert.Equal("turn_timeout", result.Code);
+        Assert.Equal(0, model.Queries);
+        Assert.DoesNotContain(events, e => e.Kind is EventKind.Text or EventKind.ToolStarted or EventKind.ToolCompleted);
+    }
+
+    [Fact]
+    public async Task ElapsedDeadlineDuringToolPreviewPreventsDispatch()
+    {
+        var model = new ProbeModel();
+        var clock = new ManualTurnClock();
+        var session = Session(Capability.DataQuery);
+        var events = new List<ConversationEvent>();
+        var result = await new ConversationCoordinator(model, new ScriptProvider { TwoCalls = true },
+            new(model, model, session), session, new(Timeout: TimeSpan.FromMinutes(1)), turnClock: clock).RunAsync(
+                new(Guid.NewGuid(), "x", ConversationMode.Analyze, session.Snapshot), e =>
+                {
+                    events.Add(e);
+                    if (e.Kind == EventKind.ToolStarted) clock.Advance(TimeSpan.FromHours(2));
+                    return Task.CompletedTask;
+                });
+        Assert.Equal("turn_timeout", result.Code);
+        Assert.Equal(0, model.Queries);
+        Assert.DoesNotContain(events, e => e.Kind == EventKind.ToolCompleted);
+    }
+
+    [Fact]
     public async Task ModeMismatchFailsClosed()
     {
         var model = new ProbeModel();
@@ -338,6 +375,14 @@ public sealed class ApplicationTests
         TurnLimits? limits = null, CancellationToken cancellationToken = default) =>
         new ConversationCoordinator(model, provider, new(model, model, session), session, limits).RunAsync(
             new(Guid.NewGuid(), "分析數值", ConversationMode.Analyze, session.Snapshot), _ => Task.CompletedTask, cancellationToken);
+
+    private sealed class ManualTurnClock : TimeProvider
+    {
+        private long timestamp;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Interlocked.Read(ref timestamp);
+        public void Advance(TimeSpan elapsed) => Interlocked.Add(ref timestamp, elapsed.Ticks);
+    }
 
     private sealed class ProbeModel : ISemanticModelReader, IReadOnlyDaxQueryRunner
     {

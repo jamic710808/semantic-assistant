@@ -1,6 +1,6 @@
 # Semantic Model Assistant：ABI Assistant 逆向與開源重建
 
-狀態：M1–M6 所列主要流程已有程式碼與合成驗證；MCP Schema 隔離、情境建構器、查詢結果期限、可選設定保存、五種操作模式與可選歷史保存已加入。共用工具註冊、政策引擎與MCP明確匯入已加入；合成PBIP已在真實Desktop通過刷新、ADOMD查詢、三種TOM物件寫入、Dashboard及動態HTML篩選內容驗收；AI、雲端、Power BI自訂HTML視覺、原生介面操作及公開發佈仍待驗收。  
+狀態：M1–M6 所列主要流程已有程式碼與合成驗證；MCP Schema 隔離、情境建構器、查詢結果期限、可選設定保存、五種操作模式與可選歷史保存已加入。共用工具註冊、政策引擎與MCP明確匯入已加入；合成PBIP已在真實Desktop通過刷新、ADOMD查詢、三種TOM物件寫入、Dashboard及動態HTML篩選內容驗收；原始碼已公開。真實AI、雲端、Power BI自訂HTML視覺及原生介面操作仍待驗收。  
 日期：2026-10-13
 
 這個專案記錄對 ABI Assistant 5.0.2 的靜態分析，並自行實作可由原始碼建置的 **Semantic Assistant**。可執行桌面示範與核心工具流程；自行重寫來源採 MIT，原始碼已公開於 [jamic710808/semantic-assistant](https://github.com/jamic710808/semantic-assistant)。目前是來源預覽版，真實 AI 與雲端服務仍待驗收。
@@ -75,7 +75,7 @@ CLI 與驗證：
 .\scripts\Verify.ps1
 ```
 
-封裝後驗證（七條合成設定重載／MCP匯入／歷史保存／模式控制／Dashboard／AI 提案／MCP 隔離流程，沒有連接 Power BI）：
+封裝後驗證（八條合成登入快取／設定重載／MCP匯入／歷史保存／模式控制／Dashboard／AI 提案／MCP 隔離流程，沒有連接 Power BI）：
 
 ```powershell
 & 'D:\KEN\codex\.tools\dotnet10\dotnet.exe' publish src\SemanticAssistant.Desktop -c Release --no-restore -o artifacts\desktop

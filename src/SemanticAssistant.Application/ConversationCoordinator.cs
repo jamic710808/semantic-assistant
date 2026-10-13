@@ -6,7 +6,7 @@ namespace SemanticAssistant.Application;
 public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProvider provider,
     ToolDispatcher dispatcher, PermissionSession session, TurnLimits? limits = null,
     ModelContextBuilder? contextBuilder = null, TimeProvider? resultClock = null,
-    ModeController? modes = null, ModeSnapshot? modeSnapshot = null)
+    ModeController? modes = null, ModeSnapshot? modeSnapshot = null, TimeProvider? turnClock = null)
 {
     private readonly TurnLimits turnLimits = limits ?? new();
     private readonly ModelContextBuilder modelContext = contextBuilder ?? new();
@@ -20,8 +20,17 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
         var callIds = new HashSet<string>(StringComparer.Ordinal);
         long sequence = 0;
         var textCharacters = 0;
+        var clock = turnClock ?? TimeProvider.System;
+        var startedAt = clock.GetTimestamp();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(turnLimits.EffectiveTimeout);
+        void EnsureWithinDeadline()
+        {
+            // Timer callbacks may run late on a busy thread pool. Check elapsed time
+            // at every dispatch/publication boundary independently of that timer.
+            if (clock.GetElapsedTime(startedAt) >= turnLimits.EffectiveTimeout) deadline.Cancel();
+            deadline.Token.ThrowIfCancellationRequested();
+        }
         Task Send(EventKind kind, string text, string? tool = null, string? code = null) =>
             emit(new(1, request.RequestId, ++sequence, kind, text, tool, code));
         async Task<ConversationOutcome> End(string code, EventKind kind, string message)
@@ -33,6 +42,7 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
         try
         {
             await Send(EventKind.Started, "開始回合；所有工具由本機檢查權限。");
+            EnsureWithinDeadline();
             if ((modes is null) != (modeSnapshot is null)) throw new ModePolicyException();
             if (modes is not null)
             {
@@ -60,8 +70,9 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
             if (request.Permissions.Allows(Capability.MetadataRead) &&
                 (authorization is null || authorization.Allows(EgressCategory.Metadata)))
             {
+                EnsureWithinDeadline();
                 var model = await reader.ReadSnapshotAsync(deadline.Token).WaitAsync(deadline.Token);
-                deadline.Token.ThrowIfCancellationRequested();
+                EnsureWithinDeadline();
                 dispatcher.EnsurePolicyCurrent(request.Permissions);
                 if (!session.IsCurrent(request.Permissions))
                     return await End("stale_permission", EventKind.Error, "中繼資料讀取期間授權已變更。");
@@ -77,7 +88,7 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                 tools = tools.Where(t => authorization.Allows(ToolPolicyEngine.RequiredEgress(t))).ToImmutableArray();
             for (var round = 0; round < turnLimits.MaxRounds; round++)
             {
-                deadline.Token.ThrowIfCancellationRequested();
+                EnsureWithinDeadline();
                 dispatcher.EnsurePolicyCurrent(request.Permissions);
                 if (!session.IsCurrent(request.Permissions))
                     return await End("stale_permission", EventKind.Error, "本回合授權已撤銷。");
@@ -85,15 +96,18 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                 foreach (var result in results)
                     ToolPolicyEngine.EnsureResultFresh(result, resultClock);
                 if (authorization is not null) authorization.EnsureValid(provider.Identity!);
+                EnsureWithinDeadline();
                 var stream = provider.StreamAsync(new(request.Message, request.Mode, context, tools, messages.ToImmutable())
                 { Authorization = authorization }, deadline.Token);
                 var enumerator = stream.GetAsyncEnumerator(deadline.Token);
                 Task<bool>? pendingRead = null;
                 try
                 {
-                    while (await (pendingRead = enumerator.MoveNextAsync().AsTask()).WaitAsync(deadline.Token))
+                    while (true)
                     {
-                        deadline.Token.ThrowIfCancellationRequested();
+                        EnsureWithinDeadline();
+                        if (!await (pendingRead = enumerator.MoveNextAsync().AsTask()).WaitAsync(deadline.Token)) break;
+                        EnsureWithinDeadline();
                         dispatcher.EnsurePolicyCurrent(request.Permissions);
                         foreach (var result in results)
                             ToolPolicyEngine.EnsureResultFresh(result, resultClock);
@@ -104,6 +118,7 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                             textCharacters += text.Value.Length;
                             if (textCharacters > turnLimits.MaxTextCharacters)
                                 return await End("text_limit", EventKind.Error, "文字輸出超過回合上限。");
+                            EnsureWithinDeadline();
                             await Send(EventKind.Text, text.Value);
                         }
                         else if (enumerator.Current is ProviderEvent.Call item)
@@ -118,16 +133,18 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                             var preview = call.Name == "execute_dax_query" && call.Arguments.ValueKind == System.Text.Json.JsonValueKind.Object && call.Arguments.TryGetProperty("dax", out var dax)
                                 && dax.ValueKind == System.Text.Json.JsonValueKind.String ? "將執行 DAX：\n" + dax.GetString() : "工具請求已收到。";
                             await Send(EventKind.ToolStarted, preview, call.Name);
+                            EnsureWithinDeadline();
                             var result = authorization is not null && !tools.Any(t => t.Name == call.Name)
                                 ? new ToolResult(call.Id, call.Name, false, "egress_denied", "工具沒有對應的外送授權。")
                                 : await dispatcher.DispatchAsync(call, request.Permissions, deadline.Token);
-                            deadline.Token.ThrowIfCancellationRequested();
+                            EnsureWithinDeadline();
                             if (!session.IsCurrent(request.Permissions))
                                 return await End("stale_permission", EventKind.Error, "已丟棄撤銷授權後的工具結果。");
                             dispatcher.EnsurePolicyCurrent(request.Permissions);
                             if (authorization is not null) { authorization.EnsureValid(provider.Identity!); ToolPolicyEngine.EnsureResultEgress(result, authorization); }
                             results.Add(result);
                             messages.Add(new("tool", result.Summary, Result: result) { Round = round });
+                            EnsureWithinDeadline();
                             await Send(EventKind.ToolCompleted, result.Summary, call.Name, result.Code);
                         }
                     }
@@ -142,6 +159,7 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                 }
                 if (!called)
                 {
+                    EnsureWithinDeadline();
                     dispatcher.EnsurePolicyCurrent(request.Permissions);
                     foreach (var result in results)
                         ToolPolicyEngine.EnsureResultFresh(result, resultClock);
