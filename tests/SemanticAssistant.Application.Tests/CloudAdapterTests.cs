@@ -16,6 +16,15 @@ public sealed class CloudAdapterTests
         public Task<DelegatedToken> AcquireAsync(CancellationToken token) =>
             Task.FromResult(new DelegatedToken("synthetic-token-only", DateTimeOffset.UtcNow.AddMinutes(expired ? -1 : 5), tenant));
     }
+    private sealed class CancellingTokenSource(CancellationTokenSource cancellation) : IDelegatedTokenSource
+    {
+        public int Reads;
+        public Task<DelegatedToken> AcquireAsync(CancellationToken token)
+        {
+            Reads++; cancellation.Cancel();
+            return Task.FromResult(new DelegatedToken("synthetic-token-only", DateTimeOffset.UtcNow.AddMinutes(5), Tenant));
+        }
+    }
     private sealed class Handler(string body, HttpStatusCode status = HttpStatusCode.OK) : HttpMessageHandler
     {
         public int Calls;
@@ -46,6 +55,26 @@ public sealed class CloudAdapterTests
         var handler = new Handler("{}");
         using var api = new PowerBiRestClient(new TokenSource(expired ? Tenant : Guid.NewGuid(), expired), Tenant, handler);
         await Assert.ThrowsAsync<CloudServiceException>(() => api.ListWorkspacesAsync(0, default)); Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task PreCancelledRestCallDoesNotAcquireCredentialOrSendHttp()
+    {
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        var identity = new CancellingTokenSource(cancellation); var handler = new Handler("{}");
+        using var api = new PowerBiRestClient(identity, Tenant, handler);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => api.ListWorkspacesAsync(0, cancellation.Token));
+        Assert.Equal(0, identity.Reads); Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task CancellationDuringCredentialAcquisitionStopsBeforeHttp()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var identity = new CancellingTokenSource(cancellation); var handler = new Handler("{}");
+        using var api = new PowerBiRestClient(identity, Tenant, handler);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => api.ListWorkspacesAsync(0, cancellation.Token));
+        Assert.Equal(1, identity.Reads); Assert.Equal(0, handler.Calls);
     }
 
     [Fact]

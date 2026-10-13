@@ -57,7 +57,9 @@ public sealed class CloudModelAdapter : ISemanticModelReader, IReadOnlyDaxQueryR
 
     public async Task<ModelSnapshot> ReadSnapshotAsync(CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var access = await identity.AcquireAsync(token);
+        token.ThrowIfCancellationRequested();
         if (access.Tenant != tenant || access.ExpiresAt <= DateTimeOffset.UtcNow) throw new CloudServiceException();
         return await Task.Run(() =>
         {
@@ -88,12 +90,9 @@ public sealed class CloudModelAdapter : ISemanticModelReader, IReadOnlyDaxQueryR
         ReadOnlyDax.Validate(dax);
         if (limits.MaxRows is < 1 or > 100 || limits.MaxBytes is < 1024 or > 64_000 || limits.EffectiveTimeout <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(limits));
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(limits.EffectiveTimeout);
-        if ((await ReadSnapshotAsync(timeout.Token)).Identity != target) throw new CloudServiceException();
-        using var response = await rest.ExecuteDaxAsync(workspace.Id, dataset.Id, dax, limits.MaxBytes, timeout.Token);
-        var result = ParseQueryResponse(response.RootElement, target, dax, limits);
-        if ((await ReadSnapshotAsync(timeout.Token)).Identity != target) throw new CloudServiceException();
-        return result;
+        return await CloudQueryExecution.ExecuteAsync(target, dax, limits, ReadSnapshotAsync,
+            cancellation => rest.ExecuteDaxAsync(workspace.Id, dataset.Id, dax, limits.MaxBytes, cancellation), token)
+            .ConfigureAwait(false);
     }
 
     public static QueryResult ParseQueryResponse(JsonElement root, ModelIdentity target, string dax, QueryLimits limits)

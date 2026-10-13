@@ -40,12 +40,15 @@ public sealed class PowerBiRestClient(IDelegatedTokenSource identity, Guid expec
 
     private async Task<JsonDocument> SendAsync(HttpMethod method, string relative, object? body, int maxBytes, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var credential = await identity.AcquireAsync(token);
+        token.ThrowIfCancellationRequested();
         if (credential.Tenant != expectedTenant || credential.ExpiresAt <= DateTimeOffset.UtcNow) throw new CloudServiceException();
         using var request = new HttpRequestMessage(method, Root + relative);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential.Value);
         if (body is not null) request.Content = JsonContent.Create(body);
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+        token.ThrowIfCancellationRequested();
         if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > maxBytes) throw new CloudServiceException();
         await using var stream = await response.Content.ReadAsStreamAsync(token);
         using var bytes = new MemoryStream(); var buffer = new byte[4096];
@@ -55,6 +58,7 @@ public sealed class PowerBiRestClient(IDelegatedTokenSource identity, Guid expec
             if (bytes.Length + count > maxBytes) throw new CloudServiceException();
             bytes.Write(buffer, 0, count);
         }
+        token.ThrowIfCancellationRequested();
         try { return JsonDocument.Parse(bytes.ToArray(), new() { MaxDepth = 32 }); }
         catch (JsonException) { throw new CloudServiceException(); }
     }
