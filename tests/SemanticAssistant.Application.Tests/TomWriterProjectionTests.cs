@@ -23,7 +23,8 @@ public sealed class TomWriterProjectionTests
         var first = connection.Read();
         db.Model.Tables[0].Measures[0].Annotations.Add(new Annotation { Name = DefinitionRules.OwnerAnnotation, Value = DefinitionRules.Owner });
         var second = connection.Read();
-        Assert.Equal(first.Identity, second.Identity); Assert.NotEqual(first.Revision, second.Revision);
+        Assert.NotEqual(first.Identity, second.Identity); Assert.NotEqual(first.Revision, second.Revision);
+        Assert.Equal(first.Identity.Revision, first.Revision); Assert.Equal(second.Identity.Revision, second.Revision);
         Assert.Equal(DefinitionRules.Owner, second.Tables[0].Measures[0].Owner);
         var operation = Guid.NewGuid();
         db.Model.Tables[0].Measures[0].Annotations.Add(new Annotation { Name = DefinitionRules.OperationAnnotation, Value = operation.ToString() });

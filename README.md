@@ -1,5 +1,7 @@
 # Semantic Model Assistant：ABI Assistant 逆向與開源重建
 
+最新接續：[完整定義版本與重啟後稽核檢視](docs/source-version-and-recovery-review.md)。585項回歸及12條合成桌面流程通過；Desktop唯讀查詢16項實機檢查通過。新增 `--review-write-audit <journal-folder>` 檢視未結案／損壞紀錄；不恢復授權或自行還原。真實AI、雲端與引擎故障復原仍待驗收。
+
 最新引擎驗收：[執行中的查詢取消與逾時](docs/owned-cancellation-acceptance.md)完成9個真實引擎檢查點；538項回歸通過。觀測活動命令、結果丟棄及後續無活躍標記分別記錄；引擎中止原因、實際程序競態與原生介面仍待對應證據。
 
 前輪查詢補強：[完整結果預算、adapter自身期限與自有Desktop驗收](docs/owned-query-acceptance.md)。528項回歸、16個正式引擎／guard檢查點通過；當時命令提交前的取消證據與上方後續引擎驗收分開保留。

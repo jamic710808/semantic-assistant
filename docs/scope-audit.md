@@ -1,5 +1,7 @@
 # 原始架構覆蓋與完成條件
 
+最新接續：[完整定義來源版本與唯讀故障盤點](source-version-and-recovery-review.md)共用TOM定義雜湊，補齊partition／sources／roles變動的失效判定與重啟日誌檢視。沒有恢復授權或新增自動還原；真實服務、故障回復及原生重測缺口保留。
+
 本輪接續：[雲端查詢期限離線驗收](cloud-query-deadline-acceptance.md)補齊單調時鐘、晚到結果／錯誤拒絕及認證前後取消檢查；16項新增合成案例不代表真實雲端已驗收。AI供應商依使用者安排稍後設定。
 
 最新：[真實活動命令的呼叫端取消與adapter逾時](owned-cancellation-acceptance.md)通過9個引擎檢查、538項回歸。已觀察命令開始、取消後不交付結果及後續無活躍標記；沒有宣稱引擎中止原因、精準停止時間、實際PID競態、原生UI、AI或雲端已驗收。

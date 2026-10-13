@@ -8,6 +8,21 @@ using SemanticAssistant.Adapters.Mcp;
 
 if (args.Length == 1 && args[0] == "--mcp-schema-worker-v1") return await McpSchemaWorker.RunAsync();
 
+if (args.Length == 2 && args[0] == "--review-write-audit")
+{
+    try
+    {
+        var review = ModelWriteAuditReader.Read(args[1]);
+        Console.WriteLine(JsonSerializer.Serialize(review, new JsonSerializerOptions { WriteIndented = true }));
+        return review.Entries.Any(e => e.RequiresReview) ? 3 : 0;
+    }
+    catch
+    {
+        Console.Error.WriteLine("稽核讀取失敗。請明確選取本程式的稽核目錄，確認權限、檔案完整性與大小限制。");
+        return 1;
+    }
+}
+
 if (args.Length == 2 && args[0] == "--render-demo-report")
 {
     var data = await new DemoModel().ExecuteAsync(DemoModel.Snapshot.Identity, DemoModel.SupportedQuery, new(), default);
@@ -35,7 +50,7 @@ if (args.Length == 2 && args[0] == "--inspect-tmdl")
 }
 if (args.Length != 0 && !(args.Length == 1 && args[0] == "--allow-query"))
 {
-    Console.Error.WriteLine("Usage: SemanticAssistant.Cli [--allow-query | --inspect-tmdl <definition-folder> | --render-demo-report <output-folder>]");
+    Console.Error.WriteLine("Usage: SemanticAssistant.Cli [--allow-query | --inspect-tmdl <definition-folder> | --render-demo-report <output-folder> | --review-write-audit <journal-folder>]");
     return 2;
 }
 var grants = ImmutableHashSet.Create(Capability.MetadataRead);

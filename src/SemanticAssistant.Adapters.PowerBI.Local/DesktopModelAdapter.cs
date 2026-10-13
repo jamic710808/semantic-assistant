@@ -2,7 +2,6 @@ using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
-using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AnalysisServices.AdomdClient;
 using Microsoft.AnalysisServices.Tabular;
@@ -63,17 +62,11 @@ public sealed class DesktopModelAdapter(DesktopInstance instance, string catalog
         token.ThrowIfCancellationRequested();
         using var server = new Server(); server.Connect(Connection(instance));
         var database = server.Databases.Cast<Database>().SingleOrDefault(d => d.ID == catalogId) ?? throw new IOException("語意模型已關閉。");
-        var tables = database.Model.Tables.Select(t => new TableDefinition(t.Name,
-            t.Columns.Where(c => c is not RowNumberColumn).Select(c => new ColumnDefinition(c.Name, c.DataType.ToString(), c is CalculatedColumn cc ? cc.Expression : null)).ToImmutableArray(),
-            t.Measures.Select(m => new MeasureDefinition(m.Name, m.Expression ?? "")).ToImmutableArray())).ToImmutableArray();
-        var relationships = database.Model.Relationships.OfType<SingleColumnRelationship>().Select(r => new RelationshipDefinition(
-            r.Name, r.FromColumn.Table.Name, r.FromColumn.Name, r.ToColumn.Table.Name, r.ToColumn.Name, r.IsActive,
-            r.FromCardinality.ToString(), r.ToCardinality.ToString(), r.CrossFilteringBehavior.ToString(), r.SecurityFilteringBehavior.ToString())).ToImmutableArray();
+        var id = $"desktop:{instance.Owner.ProcessId}:{instance.Owner.StartedUtcTicks}:{instance.Owner.Port}:{catalogId}";
+        var snapshot = TomModelProjection.Read(database, id);
         token.ThrowIfCancellationRequested(); discovery.EnsureCurrent(instance);
         token.ThrowIfCancellationRequested();
-        var revision = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { tables, relationships }))).ToLowerInvariant();
-        var id = $"desktop:{instance.Owner.ProcessId}:{instance.Owner.StartedUtcTicks}:{instance.Owner.Port}:{catalogId}";
-        return new(new(id, database.Name, revision, false), tables) { Relationships = relationships };
+        return snapshot;
     }
 
     public async Task<QueryResult> ExecuteAsync(ModelIdentity target, string dax, QueryLimits limits, CancellationToken token)

@@ -1,12 +1,10 @@
 using System.Collections.Immutable;
 using System.Data.Common;
-using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AnalysisServices.Tabular;
 using SemanticAssistant.Adapters.PowerBI.Local;
 using SemanticAssistant.Application;
 using SemanticAssistant.Contracts;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace SemanticAssistant.Adapters.PowerBI.Cloud;
 
@@ -70,18 +68,9 @@ public sealed class CloudModelAdapter : ISemanticModelReader, IReadOnlyDaxQueryR
             server.Connect(connection.ConnectionString);
             var db = server.Databases.Cast<Database>().SingleOrDefault(d => Guid.TryParse(d.ID, out var id) && id == dataset.Id)
                 ?? throw new CloudServiceException(); // Never infer another catalog from a similar display name.
-            var tables = db.Model.Tables.Select(t => new TableDefinition(t.Name,
-                t.Columns.Where(c => c is not RowNumberColumn).Select(c => new ColumnDefinition(c.Name, c.DataType.ToString(), c is CalculatedColumn cc ? cc.Expression : null)).ToImmutableArray(),
-                t.Measures.Select(m => new MeasureDefinition(m.Name, m.Expression ?? "")).ToImmutableArray())).ToImmutableArray();
-            var relationships = db.Model.Relationships.OfType<SingleColumnRelationship>().Select(r => new RelationshipDefinition(
-                r.Name, r.FromColumn.Table.Name, r.FromColumn.Name, r.ToColumn.Table.Name, r.ToColumn.Name, r.IsActive,
-                r.FromCardinality.ToString(), r.ToCardinality.ToString(), r.CrossFilteringBehavior.ToString(), r.SecurityFilteringBehavior.ToString())).ToImmutableArray();
+            var snapshot = TomModelProjection.Read(db, $"cloud:{tenant}:{workspace.Id}:{dataset.Id}");
             token.ThrowIfCancellationRequested();
-            var metadata = JsonSerializer.SerializeToUtf8Bytes(new { tables, relationships });
-            if (metadata.Length > 2_000_000) throw new CloudServiceException();
-            var revision = Convert.ToHexString(SHA256.HashData(metadata)).ToLowerInvariant();
-            return new ModelSnapshot(new($"cloud:{tenant}:{workspace.Id}:{dataset.Id}", db.Name, revision, false), tables)
-            { Relationships = relationships };
+            return snapshot;
         }, token);
     }
 

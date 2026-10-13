@@ -21,7 +21,13 @@ public static class TomModelProjection
             r.FromCardinality.ToString(), r.ToCardinality.ToString(), r.CrossFilteringBehavior.ToString(), r.SecurityFilteringBehavior.ToString())).ToImmutableArray();
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new { tables, relationships });
         if (bytes.Length > 2_000_000) throw new InvalidDataException("模型投影超過上限。");
-        return new(new(modelId, db.Name, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), false), tables)
+        // Consent must also become stale when partitions, sources, roles or hidden
+        // definition properties change. Only the digest leaves this method.
+        var full = Microsoft.AnalysisServices.Tabular.JsonSerializer.SerializeDatabase(db, new SerializeOptions
+        { IgnoreTimestamps = true, IgnoreInferredObjects = true, IgnoreInferredProperties = true });
+        if (Encoding.UTF8.GetByteCount(full) > 8_388_608) throw new InvalidDataException("完整模型定義超過上限。");
+        var fullBytes = Encoding.UTF8.GetBytes(full);
+        return new(new(modelId, db.Name, Convert.ToHexString(SHA256.HashData(fullBytes)).ToLowerInvariant(), false), tables)
         { Relationships = relationships };
     }
 }
@@ -33,11 +39,6 @@ public sealed class TomWriterConnection(Server server, Database database, string
     public DefinitionState Read()
     {
         EnsureSource();
-        // Full TOM definition is hashed in memory; never put source credentials in preview or logs.
-        var full = Microsoft.AnalysisServices.Tabular.JsonSerializer.SerializeDatabase(database, new SerializeOptions
-        { IgnoreTimestamps = true, IgnoreInferredObjects = true, IgnoreInferredProperties = true });
-        if (Encoding.UTF8.GetByteCount(full) > 8_388_608) throw new InvalidDataException("完整模型定義超過上限。");
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(full))).ToLowerInvariant();
         var model = TomModelProjection.Read(database, modelId);
         var tables = database.Model.Tables.Select(t => new DefinitionTable(t.Name, t.Columns.Select(c => c.Name).ToImmutableArray(),
             t.Measures.Select(TomObjectMutations.ReadMeasure).ToImmutableArray())
@@ -45,7 +46,7 @@ public sealed class TomWriterConnection(Server server, Database database, string
             CalculatedColumns = t.Columns.OfType<CalculatedColumn>().Select(TomObjectMutations.ReadColumn).ToImmutableArray(),
             ColumnTypes = t.Columns.ToImmutableDictionary(c => c.Name, c => c.DataType.ToString(), StringComparer.OrdinalIgnoreCase)
         }).ToImmutableArray();
-        return new(model.Identity, hash, tables)
+        return new(model.Identity, model.Identity.Revision, tables)
         {
             Relationships = database.Model.Relationships.OfType<SingleColumnRelationship>().Select(TomObjectMutations.ReadRelationship).ToImmutableArray(),
             UnsupportedRelationshipNames = database.Model.Relationships.Where(r => r is not SingleColumnRelationship).Select(r => r.Name).ToImmutableArray()
