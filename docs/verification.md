@@ -1,5 +1,7 @@
 # 本機驗證紀錄
 
+2026-10-13 最新引擎驗收：[執行中的查詢取消與adapter逾時](owned-cancellation-acceptance.md)通過9個檢查點，完整538項回歸通過。DMV活動命令、取消例外／不交付結果、後續無活躍標記分別保存；引擎中止原因、實際PID競態與原生介面尚未證明。
+
 2026-10-13 最新追加：[自有查詢驗收](owned-query-acceptance.md)修正空結果封裝／最終UTF-8大小與本機adapter自身deadline，完整528項回歸及16個正式引擎／guard檢查點通過。預先取消、連線後但命令提交前取消、注入guard延遲／pin遺失分別記錄；真正in-flight取消與程序競態仍未驗收。
 
 2026-10-13 CI 追加：提交 `8ff43d1` 的 build run `38349739243` 首次失敗於既有 `HungOwnHelperIsKilledAtWallDeadline`：已回傳 `validation_timeout`，但包含程序啟動與清理的總時間 4.12 秒超過測試的 3 秒斷言。測試改用 8 秒整段等待上限，保留 500 毫秒 worker deadline、拒絕錯誤碼及自有 helper 已退出檢查；產品逾時設定未放寬。失敗紀錄保留於 `artifacts/ci-build-r16-failure.log`；後續結果以發佈附加的 verification JSON 為準。本機首次重建亦因仍開啟的驗收視窗鎖住 DLL 而失敗，保留 `artifacts/verification-native-dashboard-ci1.log`；改用全新來源 ZIP 解壓目錄重建，沒有終止或操作使用者停止的視窗。

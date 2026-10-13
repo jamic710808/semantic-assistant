@@ -1,5 +1,7 @@
 # 自有 Desktop 查詢：結果大小與取消邊界驗收
 
+後續進展見[執行中取消與逾時](owned-cancellation-acceptance.md)。本頁528項與16個檢查點為前輪證據，其「查詢中取消尚未驗收」不覆蓋後續引擎進展。
+
 日期：2026-10-13。固定小型 DAX、自有 inline 合成模型、正式 Desktop／ADOMD adapter；沒有修改、刷新、保存模型，沒有 AI 或私人模型存取。
 
 ## 本輪修正

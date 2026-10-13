@@ -1,5 +1,8 @@
 using SemanticAssistant.PowerBIFixture;
 
+if (args.Length == 2 && args[0] == "--verify-cancellation-owned")
+    return await OwnedCancellationVerification.RunAsync(args[1]);
+
 if (args.Length == 2 && args[0] == "--verify-query-owned")
     return await OwnedQueryVerification.RunAsync(args[1]);
 
