@@ -19,8 +19,8 @@ function Assert-SourceRelativePath([string]$Path) {
         throw 'A generated, secret or model artifact cannot enter a source release.'
     }
     $taskRoots = @('.gitignore', '.gitattributes', 'LICENSE', 'NOTICE', 'README.md', 'CONTRIBUTING.md',
-        'Directory.Build.props', 'NuGet.Config', 'global.json', 'SemanticAssistant.slnx', 'Start-Demo.cmd',
-        'Start-Semantic-Assistant.cmd', '啟動 AI 修正版.cmd', '啟動 Semantic 智能助手.cmd',
+        'Directory.Build.props', 'NuGet.Config', 'global.json', 'SemanticAssistant.slnx',
+        'Start-Semantic-Assistant.cmd', '啟動 Semantic 智能助手.cmd',
         'third-party/Markdig.LICENSE.txt')
     if ($Path -notin $taskRoots -and ($Path -notmatch '^(\.github|docs|examples|scripts|src|tests)/' -or
         $Path -notmatch '(?i)\.(md|cs|csproj|xaml|json|slnx|props|config|ps1|cmd|yml|yaml|tmdl|txt|rtf)$')) {

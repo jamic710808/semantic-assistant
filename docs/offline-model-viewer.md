@@ -6,7 +6,7 @@
 
 ## 操作
 
-啟動 `Start-Demo.cmd` →「載入內附範例」→ 展開表／欄位／度量值／關係 → 選取 `Total` 查看 `SUM('SyntheticSales'[Amount])` → 搜尋 `Total` → 重新讀取 → 返回示範。
+啟動 `Start-Semantic-Assistant.cmd`（首次先執行 `scripts/Publish-Desktop.ps1`）→「載入內附範例」→ 展開表／欄位／度量值／關係 → 選取 `Total` 查看 `SUM('SyntheticSales'[Amount])` → 搜尋 `Total` → 重新讀取 → 返回示範。
 
 自己的檔案：點選「開啟 TMDL 資料夾」，選 PBIP semantic model 的 `definition` 目錄，讓檔案只在本機解析。檔案挑選器不是 Power BI server 登入介面；選取並不賦予 AI 外送或數值查詢權限。
 

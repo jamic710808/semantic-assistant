@@ -50,7 +50,9 @@ M3 真實 AI 驗收入口：[預檢、供應商設定與證據判定](docs/ai-pr
 
 獨立 Power BI 驗收專案：執行 `scripts/New-LiveFixture.ps1`，產生含69筆合成資料的新PBIP、四條DAX、預期值及writer／Dashboard計畫。[測試模型與真機驗收步驟](docs/live-fixture-acceptance.md)。產生器只寫檔；另有 `scripts/Verify-LiveFixture.ps1`，每次建立新專案、啟動獨立Desktop、核對程序身分與固定來源、完成查詢／寫入後清理自有程序。
 
-也可直接雙擊專案根目錄的 `Start-Demo.cmd`。
+根目錄僅保留 `啟動 Semantic 智能助手.cmd` 與其共用入口 `Start-Semantic-Assistant.cmd`，兩者均啟動固定 `app/` 中的 1.0.1 開發版。舊 AI 修正版／Demo 啟動檔已移除；開發用示範腳本仍可由 `scripts/Start-Demo.ps1` 執行最新原始碼。
+
+[1.0.1 工作目錄整理紀錄](docs/workspace-cleanup.md)：移除舊程式包與建置快取，保留最新版 `app/` 與開發所需來源。
 
 Windows + .NET SDK **10.0.401**。本機 SDK 位於 `D:\KEN\codex\.tools\dotnet10`，啟動腳本會優先使用它；沒有改系統 PATH。其他電腦需自行安裝對應 SDK。[Microsoft 安裝說明](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
 

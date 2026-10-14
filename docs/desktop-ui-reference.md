@@ -13,8 +13,8 @@
 ## 啟動入口
 
 專案根目錄：`啟動 Semantic 智能助手.cmd` 或 `Start-Semantic-Assistant.cmd`。
-先前的 `啟動 AI 修正版.cmd` 也會轉到新版主畫面。
-目前啟動入口指向 `artifacts/ui-quick-questions-20261014/`，包含提問配置與首頁三按鈕串接、獨立權限視窗與總開關、三分頁範本、多模型 AI 配置與先前修正。提問配置見 [quick-questions.md](quick-questions.md)，權限見 [model-permissions.md](model-permissions.md)，AI 配置見 [ai-model-profiles.md](ai-model-profiles.md)，範本見 [report-templates.md](report-templates.md)。
+目前啟動入口固定指向 `app/SemanticAssistant.Desktop.dll`（1.0.1 開發版）。2026-10-15 整理後已移除過時的 `啟動 AI 修正版.cmd` 及舊 artifacts 程式包。
+最新版包含提問配置與首頁三按鈕串接、獨立權限視窗與總開關、三分頁範本、多模型 AI 配置與先前修正。提問配置見 [quick-questions.md](quick-questions.md)，權限見 [model-permissions.md](model-permissions.md)，AI 配置見 [ai-model-profiles.md](ai-model-profiles.md)，範本見 [report-templates.md](report-templates.md)。
 
 ## 功能映射
 

@@ -4,7 +4,7 @@
 
 ## 可以直接操作的流程
 
-1. 雙擊根目錄 `Start-Demo.cmd`，保持合成來源與本機模擬 AI。
+1. 雙擊根目錄 `Start-Semantic-Assistant.cmd`（首次先執行 `scripts/Publish-Desktop.ps1`），保持合成來源與本機模擬 AI。
 2. 保持數值查詢關閉，送出「建立合成Dashboard提案」。右側出現「檢視AI Dashboard提案」。
 3. 開啟提案，檢視指標 DAX、分組、日期範圍與視覺；按「檢查計畫並預覽」。此時仍沒有寫入或查詢數值。
 4. 勾選當次模型修改同意，執行並回讀驗證指標。

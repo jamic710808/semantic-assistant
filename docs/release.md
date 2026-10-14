@@ -15,13 +15,13 @@
 
 若依賴報告不同，先檢視套件版本、原始條款、來源與鎖定雜湊，再更新 `docs/dependencies.json`；release script 不會自動覆蓋這份審查基線。每個來源候選輸出 ZIP、逐檔 manifest、SHA256 檔案與依賴 JSON，到 `artifacts/releases/`。名稱已存在時拒絕覆蓋，請換新名稱。
 
-來源 ZIP 可以解壓後以 `scripts/Verify.ps1` 建置；啟動仍使用 `Start-Demo.cmd`。Release 工具本身使用 Git 的追蹤／未忽略來源清單，須在 Git checkout 中執行。來源封裝沒有 .git、bin、obj、artifacts、NuGet 套件二進位、SDK、私人模型或設定檔。
+來源 ZIP 可以解壓後以 `scripts/Publish-Desktop.ps1` 建置到 `app/`，再使用 `Start-Semantic-Assistant.cmd` 啟動。`scripts/Verify.ps1` 是獨立驗證入口。Release 工具本身使用 Git 的追蹤／未忽略來源清單，須在 Git checkout 中執行。來源封裝沒有 .git、bin、obj、app、artifacts、NuGet 套件二進位、SDK、私人模型或設定檔。
 
 `-BuildExtracted` 會在新建的 `artifacts/source-rebuild-<隨機識別碼>/` 解壓已驗證的來源，執行locked restore、Release build、全部核心測試、CLI與12條WPF合成流程；紀錄在該目錄的 `verification.log`。它使用既有SDK／NuGet cache，沒有內附SDK或離線還原套件，也不連接私人模型。只做封裝雜湊檢查時可省略此參數。
 
 ## 盤點方法與數字
 
-目前鎖定 **23個NuGet套件：10個桌面NuGet相依、1個桌面framework提供、12個開發／測試相依**。新增ProtectedData 10.0.0宣告MIT並附第三方notices；WPF的assets `packagesToPrune` 顯示此元件由framework提供，因此不將它誤標為僅供測試。報告保留framework pruning range作核對依據。`docs/dependencies.json`記錄直接／間接lock file、版本、license expression／檔案／URL、repository commit（若提供）、copyright與內附條款雜湊。這是本機還原套件清單，不是完整SBOM認證或法律審核。
+1.0.1 鎖定 **24個NuGet套件：11個桌面NuGet相依、1個桌面framework提供、12個開發／測試相依**，包含 Markdig 1.3.2（BSD-2-Clause）。ProtectedData 10.0.0宣告MIT並附第三方notices；WPF的assets `packagesToPrune` 顯示此元件由framework提供，因此不將它誤標為僅供測試。報告保留framework pruning range作核對依據。`docs/dependencies.json`記錄直接／間接lock file、版本、license expression／檔案／URL、repository commit（若提供）、copyright與內附條款雜湊。這是本機還原套件清單，不是完整SBOM認證或法律審核。
 
 每個套件會比對 `.nupkg.metadata.contentHash` 與 lock 的 contentHash，另計算實際 `.nupkg` 的 SHA512 並比對 `.nupkg.sha512`。nuspec 及內附 license／notice 的位元組另比對實際 nupkg entry，避免將修改過的解壓檔當成原始條款。兩種值分開保存：NuGet content hash 排除簽章資訊，不能直接與整個 ZIP 的雜湊視為相同。腳本沒有獨立驗證數位簽章或重新計算 NuGet 的去簽章 content hash；locked restore 仍由 SDK 執行。[NuGet metadata 說明](https://github.com/NuGet/Home/wiki/Nupkg-Metadata-File)、[signed package 說明](https://learn.microsoft.com/en-us/nuget/reference/signed-packages-reference)。
 

@@ -11,6 +11,8 @@
 
 ## 全權限預設
 
+2026-10-15 整理補記：根目錄僅保留新版中文啟動器與共用英文入口。上述舊 artifacts 程式包及 AI 修正版入口已移除；歷史紀錄／截圖在刪除前另存專案外備份。實際程式持續使用固定 `app/` 目錄。
+
 - `AiTurnConsent.ForSend` 直接允許 UserMessage、Metadata、QueryResults、ExternalToolData 四類資料外送，不顯示選項視窗。
 - 支援數值查詢的來源，預設啟用 DAX 查詢。
 - 預設允許本機 HTML 匯出與已匯入外部工具的 AI 使用。
