@@ -9,8 +9,30 @@ public sealed class HtmlReportExporter(string hostOutputFolder, PermissionSessio
 {
     private readonly string outputFolder = Path.GetFullPath(hostOutputFolder);
 
+    public async Task<string> ExportDocumentAsync(ReportDocument document, PermissionSnapshot permissions,
+        CancellationToken cancellationToken, ReportAppearance appearance, ReportSpec? spec = null)
+    {
+        void Guard()
+        {
+            cancellationToken.ThrowIfCancellationRequested(); modeGuard?.Invoke();
+            if (!session.IsCurrent(permissions) || !permissions.Allows(Capability.ArtifactWrite) || permissions.Target != document.Source)
+                throw new UnauthorizedAccessException("報告來源或匯出授權已失效。");
+            document.EnsureFresh();
+        }
+        Guard();
+        var html = ReportDocumentRenderer.Render(document, appearance, spec);
+        if (Encoding.UTF8.GetByteCount(html) > 256_000) throw new InvalidDataException("報告超過大小限制。");
+        Guard(); Directory.CreateDirectory(outputFolder);
+        var path = Path.Combine(outputFolder, $"document-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{document.Id:N}-{Guid.NewGuid():N}.html");
+        await using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, true);
+        await stream.WriteAsync(Encoding.UTF8.GetBytes(html), cancellationToken);
+        await stream.FlushAsync(cancellationToken);
+        Guard();
+        return path;
+    }
+
     public async Task<string> ExportAsync(QueryResult result, PermissionSnapshot permissions, CancellationToken cancellationToken,
-        ReportSpec? spec = null)
+        ReportSpec? spec = null, ReportAppearance? appearance = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         modeGuard?.Invoke();
@@ -18,7 +40,7 @@ public sealed class HtmlReportExporter(string hostOutputFolder, PermissionSessio
             throw new UnauthorizedAccessException("未授權本機檔案寫入。");
         if (permissions.Target != result.Source) throw new UnauthorizedAccessException("報告來源與授權目標不符。");
         QueryResultRetention.EnsureFresh(result, resultClock);
-        var html = HtmlReportRenderer.Render(result, spec, resultClock);
+        var html = HtmlReportRenderer.Render(result, spec, resultClock, appearance);
         if (Encoding.UTF8.GetByteCount(html) > 256_000) throw new InvalidDataException("報告超過大小限制。");
         QueryResultRetention.EnsureFresh(result, resultClock);
         Directory.CreateDirectory(outputFolder);

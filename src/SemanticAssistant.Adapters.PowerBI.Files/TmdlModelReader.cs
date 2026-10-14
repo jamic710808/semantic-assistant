@@ -44,7 +44,9 @@ public sealed class TmdlModelReader : ISemanticModelReader
             Relationships = database.Model.Relationships.OfType<SingleColumnRelationship>()
                 .Select(r => new RelationshipDefinition(r.Name, r.FromColumn.Table.Name, r.FromColumn.Name,
                     r.ToColumn.Table.Name, r.ToColumn.Name, r.IsActive, r.FromCardinality.ToString(), r.ToCardinality.ToString(),
-                    r.CrossFilteringBehavior.ToString(), r.SecurityFilteringBehavior.ToString())).ToImmutableArray()
+                    r.CrossFilteringBehavior.ToString(), r.SecurityFilteringBehavior.ToString())).ToImmutableArray(),
+            UnsupportedRelationshipNames = database.Model.Relationships.Where(r => r is not SingleColumnRelationship)
+                .Select(r => r.Name).ToImmutableArray()
         };
     }
 

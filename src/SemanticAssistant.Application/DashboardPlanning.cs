@@ -21,6 +21,12 @@ public sealed record DashboardDraft(Guid Id, DashboardPlan Plan, DefinitionPrevi
 public static class DashboardPlans
 {
     public static DashboardPlan Parse(string json) => StrictJson.Parse<DashboardPlan>(json);
+    public static ModelSnapshot ProjectMetrics(DashboardPlan plan, ModelSnapshot model) => model with
+    {
+        Tables = model.Tables.Select(t => t with { Measures = t.Measures
+            .Where(m => !plan.Metrics.Any(c => c.Table == t.Name && c.Name.Equals(m.Name, StringComparison.OrdinalIgnoreCase)))
+            .Concat(plan.Metrics.Where(c => c.Table == t.Name).Select(c => new MeasureDefinition(c.Name, c.Expression))).ToImmutableArray() }).ToImmutableArray()
+    };
     public static void Validate(DashboardPlan plan, ModelSnapshot model)
     {
         if (plan.Version != 1 || string.IsNullOrWhiteSpace(plan.Title) || plan.Title.Length > 200 || plan.Grouping is null ||
@@ -76,9 +82,10 @@ public static class DashboardPlans
             ? ImmutableArray.Create(new VisualSpec("empty", "查詢資料（無資料列）", VisualKind.Table, null, null, null)) : plan.Visuals;
         var spec = new ReportSpec(1, result.ResultId, plan.Title, visuals); ReportSpecs.Validate(spec, result); return spec;
     }
-    public static MeasureChange HtmlMeasure(string table, string name, QueryResult source, ReportSpec spec, TimeProvider? resultClock = null)
+    public static MeasureChange HtmlMeasure(string table, string name, QueryResult source, ReportSpec spec, TimeProvider? resultClock = null, ReportAppearance? appearance = null)
     {
-        var html = HtmlReportRenderer.Render(source, spec, resultClock);
+        if (appearance?.Output == ReportOutputKind.HtmlFile) throw new InvalidDataException("HTML 度量值需使用報告度量值或 Dashboard 範本。");
+        var html = HtmlReportRenderer.Render(source, spec, resultClock, appearance ?? TemplatePreferences.Default.For(ReportOutputKind.ReportMeasure));
         var expression = "\"" + html.Replace("\"", "\"\"") + "\"";
         if (expression.Length > 8000) throw new InvalidDataException("HTML 度量值超過 8000 字上限；請減少視覺或使用本機 HTML 匯出。");
         return new(table, name, expression); // Static query snapshot, not a filter-responsive DAX calculation.
@@ -87,18 +94,19 @@ public static class DashboardPlans
 
 public sealed class DashboardCoordinator(ISemanticModelReader reader, IModelDefinitionWriter writer,
     IReadOnlyDaxQueryRunner runner, PermissionSession session, IModelWriteJournal? journal = null, TimeProvider? resultClock = null,
-    QueryLimits? queryLimits = null)
+    QueryLimits? queryLimits = null, ModelModificationPolicy? modificationPolicy = null)
 {
     private readonly QueryLimits resultLimits = queryLimits ?? new(100, 64_000, TimeSpan.FromSeconds(30));
-    private readonly ModelWriteCoordinator writes = new(writer, session, journal);
+    private readonly ModelWriteCoordinator writes = new(writer, session, journal, modificationPolicy);
     private readonly Dictionary<Guid, DashboardDraft> issued = [];
-    public async Task<DashboardDraft> PrepareAsync(DashboardPlan plan, PermissionSnapshot permissions, CancellationToken token)
+    public async Task<DashboardDraft> PrepareAsync(DashboardPlan plan, PermissionSnapshot permissions, CancellationToken token,
+        ImmutableArray<MeasureChange>? extraChanges = null)
     {
         Check(permissions, Capability.MetadataRead);
         var model = await reader.ReadSnapshotAsync(token).WaitAsync(token); Check(permissions, Capability.MetadataRead);
         if (model.Identity != permissions.Target) throw new DefinitionConflictException();
         DashboardPlans.Validate(plan, model);
-        var definition = await writes.PrepareAsync(plan.Metrics, permissions, token);
+        var definition = await writes.PrepareAsync(plan.Metrics.AddRange(extraChanges ?? []), permissions, token);
         var query = DashboardPlans.BuildQuery(plan);
         var draft = new DashboardDraft(Guid.NewGuid(), plan, definition, query, DashboardPlans.Hash(plan, definition, query));
         lock (issued) { if (issued.Count >= 128) issued.Clear(); issued.Add(draft.Id, draft); }

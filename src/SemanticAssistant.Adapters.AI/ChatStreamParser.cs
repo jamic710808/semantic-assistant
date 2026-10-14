@@ -7,7 +7,7 @@ using SemanticAssistant.Contracts;
 
 namespace SemanticAssistant.Adapters.AI;
 
-public sealed class ProviderProtocolException() : Exception("AI 串流格式或大小不符合限制。");
+public sealed class ProviderProtocolException() : AiProviderFailureException(AiProviderFailure.Protocol);
 
 public static class ChatStreamParser
 {

@@ -1,6 +1,12 @@
 # Semantic Model Assistant：ABI Assistant 逆向與開源重建
 
-最新接續：[完整定義版本與重啟後稽核檢視](docs/source-version-and-recovery-review.md)。585項回歸及12條合成桌面流程通過；Desktop唯讀查詢16項實機檢查通過。新增 `--review-write-audit <journal-folder>` 檢視未結案／損壞紀錄；不恢復授權或自行還原。真實AI、雲端與引擎故障復原仍待驗收。
+目前本機桌面版本：**1.0.1（開發版）**，完整編號 `1.0.1-dev.20261015`。固定啟動位置為 `app`，上方「關於」顯示正在執行的版本及建置時間；詳 [版本與關於視窗](docs/about-version.md)。本機版本不代表 GitHub 已建立同名 release。
+
+1.0.1 累積更新包含桌面介面、AI 模型設定保存與切換、報告名稱與啟動偵測、範本／配色、模型修改總開關、首頁快捷提問、AI 模型修改工具及 Dashboard 更新流程。對話支援 Markdown 排版與複製，工具執行細節移至側欄；送出時預設允許資料外送，不再逐回合跳授權視窗。詳 [預設權限](docs/full-access-defaults.md)、[對話排版](docs/readable-chat.md)、[模型工具](docs/model-tools-step2.md)。此版已有本機建置與部分介面檢視；尚未對全部累積變更重新執行回歸／實機驗收，亦未證明與 ABI 完全等價。
+
+下列測試數字是先前來源版本的歷史證據，不代表 1.0.1 本次重新通過：
+
+先前接續：[完整定義版本與重啟後稽核檢視](docs/source-version-and-recovery-review.md)。585項回歸及12條合成桌面流程通過；Desktop唯讀查詢16項實機檢查通過。新增 `--review-write-audit <journal-folder>` 檢視未結案／損壞紀錄；不恢復授權或自行還原。真實AI、雲端與引擎故障復原仍待驗收。
 
 最新引擎驗收：[執行中的查詢取消與逾時](docs/owned-cancellation-acceptance.md)完成9個真實引擎檢查點；538項回歸通過。觀測活動命令、結果丟棄及後續無活躍標記分別記錄；引擎中止原因、實際程序競態與原生介面仍待對應證據。
 
@@ -13,11 +19,11 @@
 [來源預覽版下載與版本紀錄](https://github.com/jamic710808/semantic-assistant/releases)；[CI 建置與驗證紀錄](https://github.com/jamic710808/semantic-assistant/actions)。
 
 狀態：M1–M6 所列主要流程已有程式碼與合成驗證；MCP Schema 隔離、情境建構器、查詢結果期限、可選設定保存、五種操作模式與可選歷史保存已加入。共用工具註冊、政策引擎與MCP明確匯入已加入；合成PBIP已在真實Desktop通過刷新、ADOMD查詢、三種TOM物件寫入、Dashboard及動態HTML篩選內容驗收；原始碼已公開。原生來源選取／取消、結構檢視、模式撤銷及writer已操作驗收；真實AI、雲端、Power BI自訂HTML視覺及其餘原生流程仍待驗收。
-日期：2026-10-13
+歷史證據日期：2026-10-13；本次開發版日期：2026-10-15。
 
 這個專案記錄對 ABI Assistant 5.0.2 的靜態分析，並自行實作可由原始碼建置的 **Semantic Assistant**。可執行桌面示範與核心工具流程；自行重寫來源採 MIT，原始碼已公開於 [jamic710808/semantic-assistant](https://github.com/jamic710808/semantic-assistant)。目前是來源預覽版，真實 AI 與雲端服務仍待驗收。
 
-開源準備：[LICENSE](LICENSE)、[NOTICE](NOTICE)、[23 個套件的版本與條款清單](docs/dependencies.json)、[來源封裝與驗證](docs/release.md)。第三方二進位保留各自條款；JsonSchema.Net 等預編譯套件附有維護費條件，來源 ZIP 沒有收錄第三方 DLL。CI 只上傳合成驗證紀錄與畫面，建置產生的 DLL 不列入下載附件。
+開源準備：[LICENSE](LICENSE)、[NOTICE](NOTICE)、[24 個套件的版本與條款清單](docs/dependencies.json)、[來源封裝與驗證](docs/release.md)。第三方二進位保留各自條款；JsonSchema.Net 等預編譯套件附有維護費條件，來源 ZIP 沒有收錄第三方 DLL。CI 只上傳合成驗證紀錄與畫面，建置產生的 DLL 不列入下載附件。
 
 ```powershell
 git clone https://github.com/jamic710808/semantic-assistant.git
@@ -28,6 +34,15 @@ Set-Location semantic-assistant
 Dashboard／動態HTML的獨立引擎驗收工具與三份計畫已加入；[操作、預期值與驗收界線](docs/dashboard-engine-acceptance.md)。修正SVG座標尾點後，全新模型通過34個真機檢查點、423項回歸測試及4份實際HTML的瀏覽器檢視；私人模型與Power BI自訂HTML視覺不在此證據範圍。
 
 ## 立即啟動
+
+建置固定桌面版本後，雙擊根目錄的 `Start-Semantic-Assistant.cmd`（或中文啟動入口）：
+
+```powershell
+.\scripts\Publish-Desktop.ps1
+.\Start-Semantic-Assistant.cmd
+```
+
+`app/` 為本機建置輸出，不提交 Git。啟動器使用相鄰工作目錄的 `.tools\dotnet10` 或系統 `dotnet`；其他電腦需安裝 .NET 10 SDK。
 
 M3 真實 AI 驗收入口：[預檢、供應商設定與證據判定](docs/ai-provider-acceptance.md)。先執行 `scripts/Verify-AiProvider.ps1`；預設不發送 AI HTTP、不讀 key 或模型。真實供應商需另填 profile 並明確開啟 live／外送 flags，未執行時保留待驗收狀態。
 
@@ -46,14 +61,14 @@ Set-Location 'D:\KEN\codex\abi-assistant-open-architecture'
 
 桌面操作：
 
-1. 保留數值查詢關閉，送出「介紹模型結構」。
-2. 送出「分析合成數值」觀察未授權提示。
-3. 勾選「允許示範數值查詢」後重新送出，右側顯示三列合成資料及查詢來源。
-4. 要匯出時另勾選「允許匯出本機 HTML」，點選匯出；檔案寫到 `%LOCALAPPDATA%\SemanticAssistant\reports`。
+1. 送出「介紹模型結構」，或點選首頁三個快捷提問。
+2. 「引導式提問」設定本地／雲端各三個按鈕的文字，保存後同步首頁。
+3. 送出「分析合成數值」可查看合成結果；來源支援時，查詢能力預設啟用。
+4. 本機 HTML 匯出預設允許；檔案寫到 `%LOCALAPPDATA%\SemanticAssistant\reports`。
 5. 執行中可以取消；這同時撤銷當次授權，結果不會保留為可匯出報告。
-6. 查詢結果暫存最長5分鐘；過期後清除結果區、查詢／匯出勾選與能力，須重新同意查詢。Dashboard的匯出與固定HTML快照亦遵守相同期限；[期限與資料保留邊界](docs/query-result-retention.md)。
+6. 查詢結果仍受有效期限約束；過期後須重新查詢。Dashboard 匯出與固定 HTML 快照使用相同期限；[既有期限契約](docs/query-result-retention.md)。權限預設與遷移以 [1.0.1 說明](docs/full-access-defaults.md) 為準。
 
-模式選單提供「結構與分析」「報告模式」「HTML 檔案」「HTML 度量值」「Dashboard」。前兩種接受對話；後三種開啟本機匯出或獨立預覽流程。模式切換清除舊同意，沒有自動取得查詢／寫入能力。[路由、使用方式與限制](docs/mode-controller.md)。
+模式選單提供「結構與分析」「報告模式」「HTML 檔案」「HTML 度量值」「Dashboard」。模式切換清除舊回合狀態，再依來源及保存設定套用能力。[既有路由契約](docs/mode-controller.md)、[新版對話流程](docs/conversation-step1.md)。
 
 歷史試用：點選「本機歷史與保存政策」，分別勾選回合摘要／報告索引並保存政策；之後完成的回合及已同意匯出的HTML才會新增紀錄。預設關閉，最長30天／最多100筆；移除索引或清除歷史保留報告檔案，不恢復查詢或同意。[保存內容與限制](docs/history-store.md)。
 
@@ -69,13 +84,13 @@ Set-Location 'D:\KEN\codex\abi-assistant-open-architecture'
 AI 與本機 Desktop：
 
 1. 「設定 AI 供應商」填完整 `/chat/completions` HTTPS 端點與供應商支援的模型名稱。設定不會發送請求；本機模型可使用 loopback HTTP。
-2. API key 儲存到 Windows 認證管理員的 `SemanticAssistant/AI/` 命名空間；設定畫面不回填 key。勾選「記住這個端點與模型」才保存供應商設定，未勾選則只套用本次視窗。重啟只恢復端點與模型，仍需逐回合同意；相同設定可沿用安全儲存中的 key。
-3. 每次送出先展示接收端、AI 模型與資料來源版本。獨立勾選訊息、結構／DAX 定義、查詢結果的外送同意。只勾訊息時，模型結構不會被讀取或傳給 AI。
-4. 「選取 Desktop」列舉 instance，使用者選取後讀取模型名稱與結構；不自動讀資料列。需要查詢時再勾選目前模型數值查詢，並另授權查詢結果外送。此真實連線流程尚未以你的模型驗收。
-5. 埠、PID、啟動時間或模型結構變更時，舊來源被拒絕。按「重新讀取」或重新選取 instance，再重新授權。
+2. 「AI 配置」可新增、保存、修改、刪除多個模型設定並切換目前模型。API key 儲存於 Windows 認證管理員，設定文件保存端點、模型名稱與設定識別碼。[模型設定管理](docs/ai-model-profiles.md)。
+3. 送出對話預設允許訊息、模型結構／DAX、查詢結果及已匯入工具資訊外送至已設定供應商，不顯示逐回合授權視窗。
+4. 「連接本地報告」列舉執行中的 Power BI Desktop 報告，選取後讀取結構；啟動時可自動開啟選擇視窗。查詢能力依來源支援啟用，沒有在連線時自動查詢所有資料列。[報告偵測](docs/desktop-report-discovery.md)。
+5. 埠、PID、啟動時間或模型結構變更時，舊來源被拒絕。按「重新讀取」或重新選取報告以取得新來源。
 6. 「使用本機模擬 AI」切回示範供應商；真實／離線來源此時只提供本機結構檢視。
 7. HTML 匯出可選表格、KPI＋長條圖或 KPI＋折線圖。圖表數值只取自當次成功查詢結果；截斷結果的合計不代表完整母體。
-8. 「本機執行預算」可調低摘要、查詢與AI回合限制，保存後在下一輪生效；Dashboard也使用保存的查詢限制。設定保存於自己的`%LOCALAPPDATA%\SemanticAssistant\preferences\settings.json`，不包含模型來源、權限、外送同意、token或資料列。[保存與版本契約](docs/settings-store.md)。
+8. 「本機執行預算」可調低摘要、查詢與AI回合限制，保存後在下一輪生效；Dashboard也使用保存的查詢限制。設定保存於 `%LOCALAPPDATA%\SemanticAssistant\preferences\settings.json`，包含模型修改總開關、AI 設定與介面偏好，不包含 API key 或查詢資料列。[既有保存契約](docs/settings-store.md)、[權限設定與遷移](docs/full-access-defaults.md)。
 
 詳細契約與限制：[M3 AI 串流與授權](docs/ai-streaming-egress.md)、[本機適配器](docs/local-desktop-adapter.md)、[M4 報告規格](docs/report-spec.md)。
 
@@ -121,7 +136,7 @@ CLI 預設輸出合成流程的 JSON events；沒有查詢 rows。`--inspect-tmd
 | `tests/SemanticAssistant.FixtureHost` | 實際啟動的自製 MCP 合成子程序 |
 | `tests/SemanticAssistant.Application.Tests` | 授權、契約、上限、取消、報告與合成 TMDL 測試 |
 
-Solution：`SemanticAssistant.slnx`。套件版本與 transitive resolution 記錄在各專案 `packages.lock.json`；`Verify.ps1` 用 locked-mode restore。`.github/workflows/build.yml` 提供 Windows CI 定義，目前只有本機驗證，尚未跑 GitHub Actions。
+Solution：`SemanticAssistant.slnx`。套件版本與 transitive resolution 記錄在各專案 `packages.lock.json`；`Verify.ps1` 用 locked-mode restore。`.github/workflows/build.yml` 在 push／pull request 時執行 Windows CI；本次狀態以 GitHub Actions 紀錄為準。
 
 外部 AI、Desktop 與雲端適配器已有程式碼與合成測試；真實 provider、使用者模型、OAuth／REST／XMLA 與 PBIP 相容性尚未驗收。雲端、MCP、模型修改及 Dashboard 入口位於「更多來源與工具」。Demo DAX runner 僅接受固定示範查詢與一份已知合成 Dashboard 計畫，不是通用 DAX 引擎。使用原生 WPF；React/WebView2 與其信任來源機制尚未實作。
 

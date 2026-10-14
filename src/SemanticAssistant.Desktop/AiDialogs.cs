@@ -15,38 +15,6 @@ internal static class AiDialogs
         return window.ShowDialog() == true ? window.Selection : null;
     }
 
-    public static (ProviderIdentity Identity, bool Remember)? Configure(Window owner, ProviderIdentity? prior,
-        WindowsCredentialVault vault, bool remember)
-    {
-        var panel = new StackPanel { Margin = new Thickness(20) };
-        var window = Window(owner, "AI 供應商設定", panel);
-        AddText(panel, "填入完整 Chat Completions 端點與模型名稱。設定本身不會連線。API key 儲存於 Windows 認證管理員。空白表示沿用此設定既有 key，或使用不需 key 的本機服務。");
-        var endpoint = Input(panel, "端點 URL", prior?.Endpoint ?? "https://api.openai.com/v1/chat/completions");
-        var model = Input(panel, "模型名稱（依供應商提供）", prior?.Model ?? "");
-        AddText(panel, "API key");
-        var password = new PasswordBox { Margin = new Thickness(0, 6, 0, 12), MaxLength = 2560 };
-        panel.Children.Add(password);
-        var retain = Check(panel, "記住這個端點與模型；重新啟動後仍需逐回合同意外送");
-        retain.IsChecked = remember;
-        var status = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        panel.Children.Add(status);
-        ProviderIdentity? selected = null;
-        var save = new Button { Content = "套用設定", Margin = new Thickness(0, 16, 0, 0) };
-        panel.Children.Add(save);
-        save.Click += (_, _) =>
-        {
-            try
-            {
-                selected = OpenAiCompatibleProvider.ValidateIdentity(new("openai-compatible", endpoint.Text.Trim(), model.Text.Trim()));
-                if (password.Password.Length > 0) vault.SaveSecret(selected, password.Password);
-                password.Clear();
-                window.DialogResult = true;
-            }
-            catch { selected = null; status.Text = "設定未儲存。請確認 HTTPS 完整端點、模型名稱與 Windows 認證管理員可用。"; }
-        };
-        return window.ShowDialog() == true && selected is not null ? (selected, retain.IsChecked == true) : null;
-    }
-
     public static AssistantBudgets? ConfigureBudgets(Window owner, AssistantBudgets prior)
     {
         var panel = new StackPanel { Margin = new Thickness(20) };
@@ -71,30 +39,6 @@ internal static class AiDialogs
             catch { chosen = null; status.Text = "請依各欄上限填入整數。"; }
         };
         return window.ShowDialog() == true ? chosen : null;
-    }
-
-    public static EgressConsent? Consent(Window owner, ProviderIdentity identity, ModelIdentity target, bool canQuery, bool hasExternalTools = false)
-    {
-        var panel = new StackPanel { Margin = new Thickness(20) };
-        var window = Window(owner, "當次回合的資料外送授權", panel);
-        AddText(panel, $"接收端：{identity.Endpoint}\nAI 模型：{identity.Model}\n資料來源：{target.Name}\n來源版本：{target.Revision}\n\n授權只綁定此回合、此來源與此版本，最多 10 分鐘。工具結果可能包含商業資料；取消回合會撤銷後續傳送，已傳送的內容無法收回。");
-        var message = Check(panel, "允許傳送我輸入的訊息（包括其中的模型名稱與數值）");
-        var metadata = Check(panel, "允許傳送模型結構、欄位名稱與度量值 DAX");
-        var query = Check(panel, "允許傳送 DAX 查詢與查詢結果資料列");
-        query.IsEnabled = canQuery;
-        var external = Check(panel, "允許傳送已匯入外部工具的名稱、描述、Schema、呼叫參數與結果（可能含商業資料；不含程序環境設定）");
-        external.IsEnabled = hasExternalTools;
-        var approve = new Button { Content = "授權並送出這一回合", Margin = new Thickness(0, 16, 0, 0), IsEnabled = false };
-        panel.Children.Add(approve);
-        message.Checked += (_, _) => approve.IsEnabled = true;
-        message.Unchecked += (_, _) => approve.IsEnabled = false;
-        approve.Click += (_, _) => window.DialogResult = true;
-        if (window.ShowDialog() != true) return null;
-        var categories = ImmutableHashSet.Create(EgressCategory.UserMessage);
-        if (metadata.IsChecked == true) categories = categories.Add(EgressCategory.Metadata);
-        if (canQuery && query.IsChecked == true) categories = categories.Add(EgressCategory.QueryResults);
-        if (hasExternalTools && external.IsChecked == true) categories = categories.Add(EgressCategory.ExternalToolData);
-        return new(identity, categories, DateTimeOffset.UtcNow.AddMinutes(10));
     }
 
     public static Task<bool> ConfirmExternalAsync(Window owner, ExternalToolPreview preview, CancellationToken token) =>

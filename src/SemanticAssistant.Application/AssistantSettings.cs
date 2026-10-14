@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Collections.Immutable;
 using SemanticAssistant.Contracts;
 
 namespace SemanticAssistant.Application;
@@ -31,15 +32,48 @@ public sealed record AssistantBudgets(
 public sealed record AssistantSettings([property: JsonRequired] int Version,
     [property: JsonRequired] ProviderIdentity? AiProvider, [property: JsonRequired] AssistantBudgets Budgets)
 {
+    // Optional additive field: existing v2 files remain readable without rewriting.
+    public ImmutableArray<SavedAiProfile> AiProfiles { get; init; } = [];
+    public TemplatePreferences Templates { get; init; } = TemplatePreferences.Default;
+    public bool AllowModelModification { get; init; } = true;
+    // One-time upgrade of earlier installations to the user's requested full defaults.
+    public bool FullAccessDefaultsApplied { get; init; } = false;
+    public QuickQuestionSettings QuickQuestions { get; init; } = QuickQuestionSettings.Default;
     public static AssistantSettings Default => new(2, null, new());
     public void Validate()
     {
         if (Version != 2 || Budgets is null) throw new InvalidDataException("設定版本或預算無效。");
         Budgets.Validate();
+        if (Templates is null) throw new InvalidDataException("缺少報告範本設定。");
+        Templates.Validate();
+        if (QuickQuestions is null) throw new InvalidDataException("缺少快捷問題設定。");
+        QuickQuestions.Validate();
         if (AiProvider is { } profile && ProviderProfiles.Validate(profile) != profile)
             throw new InvalidDataException("請保存正規化的供應商端點。");
+        if (AiProfiles.IsDefault || AiProfiles.Length > 24)
+            throw new InvalidDataException("AI 模型清單無效或超過 24 組上限。");
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var saved in AiProfiles)
+        {
+            if (saved is null || string.IsNullOrWhiteSpace(saved.DisplayName) || saved.DisplayName.Length > 80 || saved.DisplayName.Any(char.IsControl) ||
+                saved.Identity is null || ProviderProfiles.Validate(saved.Identity) != saved.Identity || !ids.Add(saved.Identity.Id))
+                throw new InvalidDataException("AI 模型名稱、端點或識別碼無效。");
+        }
+        if (!AiProfiles.IsEmpty && AiProvider is not null && !AiProfiles.Any(p => p.Identity == AiProvider))
+            throw new InvalidDataException("目前 AI 模型必須對應已保存的設定。");
+    }
+
+    public AssistantSettings IncludeCurrentProfile()
+    {
+        if (AiProvider is null || AiProfiles.Any(p => p.Identity == AiProvider)) return this;
+        var updated = this with { AiProfiles = AiProfiles.Add(new(AiProvider.Model, AiProvider)) };
+        updated.Validate();
+        return updated;
     }
 }
+
+public sealed record SavedAiProfile([property: JsonRequired] string DisplayName,
+    [property: JsonRequired] ProviderIdentity Identity);
 
 public static class ProviderProfiles
 {

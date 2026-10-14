@@ -13,9 +13,11 @@ namespace SemanticAssistant.Adapters.PowerBI.Local;
 
 public sealed record LocalCatalog(string Id, string Name);
 
-public sealed class DesktopModelAdapter(DesktopInstance instance, string catalogId, DesktopDiscovery discovery)
+public sealed class DesktopModelAdapter(DesktopInstance instance, string catalogId, DesktopDiscovery discovery, string? reportDisplayName = null)
     : ISemanticModelReader, IReadOnlyDaxQueryRunner
 {
+    // Presentation only: never changes the catalog ID, model identity or revision.
+    public string? ReportDisplayName { get; } = reportDisplayName;
     private static string Connection(DesktopInstance instance, string? catalog = null)
     {
         var builder = new DbConnectionStringBuilder

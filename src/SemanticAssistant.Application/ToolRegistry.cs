@@ -6,8 +6,8 @@ using SemanticAssistant.Contracts;
 namespace SemanticAssistant.Application;
 
 public enum ToolOrigin { BuiltIn, McpProcess }
-public enum ToolRisk { ReadOnlyModel, ProposalOnly, UnknownExternalEffects }
-public enum ToolResultFormat { TableMetadataV1, QueryResultV1, DashboardPlanV1, McpDataV1 }
+public enum ToolRisk { ReadOnlyModel, ProposalOnly, UnknownExternalEffects, ModelWriteProposal }
+public enum ToolResultFormat { TableMetadataV1, QueryResultV1, DashboardPlanV1, McpDataV1, NativeDefinitionV1, PendingModelWriteV1, ModelMetadataV1 }
 public sealed record ToolSource(string Identity, string Display, long Version, string DefinitionHash);
 public sealed record RegisteredTool(ToolDefinition Definition, ToolOrigin Origin, ToolRisk Risk, ToolSource Source,
     ModelIdentity? Target = null, IExternalToolBinding? Binding = null)
@@ -15,8 +15,11 @@ public sealed record RegisteredTool(ToolDefinition Definition, ToolOrigin Origin
     public ToolResultFormat ResultFormat => Origin == ToolOrigin.McpProcess ? ToolResultFormat.McpDataV1 : Definition.Name switch
     {
         "get_table_details" => ToolResultFormat.TableMetadataV1,
+        "get_model_overview" => ToolResultFormat.ModelMetadataV1,
         "execute_dax_query" => ToolResultFormat.QueryResultV1,
         "propose_dashboard" => ToolResultFormat.DashboardPlanV1,
+        _ when AiModelToolDefinitions.IsMutation(Definition.Name) => ToolResultFormat.PendingModelWriteV1,
+        _ when AiModelToolDefinitions.Contains(Definition.Name) => ToolResultFormat.NativeDefinitionV1,
         _ => throw new ToolPolicyException("unknown_tool")
     };
 }
@@ -39,10 +42,12 @@ public sealed class ToolRegistry
     public ToolRegistry(IEnumerable<ToolDefinition> builtIns)
     {
         var tools = builtIns.Select(d => new RegisteredTool(d, ToolOrigin.BuiltIn,
-            d.Name == "propose_dashboard" ? ToolRisk.ProposalOnly : ToolRisk.ReadOnlyModel, new("builtin", "本機內建", 1, "v1"))).ToImmutableArray();
+            d.RequiredCapability == Capability.DefinitionWrite ? ToolRisk.ModelWriteProposal :
+                d.Name == "propose_dashboard" ? ToolRisk.ProposalOnly : ToolRisk.ReadOnlyModel, new("builtin", "本機內建", 2, "v2"))).ToImmutableArray();
         if (tools.Length > 16 || tools.Select(t => t.Definition.Name).Distinct(StringComparer.Ordinal).Count() != tools.Length ||
             tools.Any(t => !(t.Definition.Name == "execute_dax_query" && t.Definition.RequiredCapability == Capability.DataQuery ||
-                t.Definition.Name is "get_table_details" or "propose_dashboard" && t.Definition.RequiredCapability == Capability.MetadataRead) ||
+                t.Definition.Name is "get_table_details" or "get_model_overview" or "propose_dashboard" && t.Definition.RequiredCapability == Capability.MetadataRead ||
+                AiModelToolDefinitions.Definitions.Any(d => d.Name == t.Definition.Name && d.RequiredCapability == t.Definition.RequiredCapability)) ||
                 t.Definition.Name.StartsWith("mcp_", StringComparison.Ordinal))) throw new ArgumentException("內建工具清單無效。");
         current = new(Guid.NewGuid(), 1, tools);
     }

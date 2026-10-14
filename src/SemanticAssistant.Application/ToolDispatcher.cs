@@ -7,17 +7,20 @@ namespace SemanticAssistant.Application;
 public sealed class ToolDispatcher(ISemanticModelReader reader, IReadOnlyDaxQueryRunner queryRunner,
     PermissionSession session, QueryLimits? limits = null, TimeProvider? resultClock = null,
     ModeController? modes = null, ModeSnapshot? modeSnapshot = null, ToolRegistry? toolRegistry = null,
-    Func<ExternalToolPreview, CancellationToken, Task<bool>>? externalConfirmation = null)
+    Func<ExternalToolPreview, CancellationToken, Task<bool>>? externalConfirmation = null, ModelModificationPolicy? modificationPolicy = null,
+    AiModelOperations? aiOperations = null)
 {
     private readonly QueryLimits queryLimits = limits ?? new();
-    private readonly ToolPolicyEngine policy = new(toolRegistry ?? new(Definitions), session, modes, modeSnapshot);
+    private readonly ToolPolicyEngine policy = new(toolRegistry ?? new(Definitions), session, modes, modeSnapshot, modificationPolicy);
     public void EnsurePolicyCurrent(PermissionSnapshot permissions) => policy.EnsureCurrent(permissions);
 
     public static ImmutableArray<ToolDefinition> Definitions { get; } =
     [
+        ModelOverview.Definition,
         Define("get_table_details", "讀取指定表的欄位及度量值中繼資料。", Capability.MetadataRead, "table", 128),
         Define("execute_dax_query", "執行唯讀 DAX 查詢；adapter 強制限制列數、大小與時間。", Capability.DataQuery, "dax", 8_000),
-        DashboardProposals.Definition
+        DashboardProposals.Definition,
+        .. AiModelToolDefinitions.Definitions
     ];
 
     private static ToolDefinition Define(string name, string description, Capability capability, string parameter, int maxLength) =>
@@ -29,7 +32,8 @@ public sealed class ToolDispatcher(ISemanticModelReader reader, IReadOnlyDaxQuer
             properties = new Dictionary<string, object> { [parameter] = new { type = "string", minLength = 1, maxLength } }
         }));
 
-    public ImmutableArray<ToolDefinition> AllowedTools(PermissionSnapshot permissions) => policy.AllowedTools(permissions);
+    public ImmutableArray<ToolDefinition> AllowedTools(PermissionSnapshot permissions) => policy.AllowedTools(permissions)
+        .Where(t => aiOperations is not null || !AiModelToolDefinitions.Contains(t.Name)).ToImmutableArray();
 
     public async Task<ToolResult> DispatchAsync(ToolCall call, PermissionSnapshot permissions, CancellationToken cancellationToken)
     {
@@ -42,6 +46,17 @@ public sealed class ToolDispatcher(ISemanticModelReader reader, IReadOnlyDaxQuer
         catch (ModePolicyException) { return Failure(call, "invalid_mode", "目前模式不允許AI執行此工具。"); }
         try
         {
+            if (AiModelToolDefinitions.Contains(call.Name))
+            {
+                if (aiOperations is null) return Failure(call, "model_tools_unavailable", "目前來源沒有模型修改／Dashboard服務。");
+                var native = await aiOperations.DispatchAsync(call, permissions, () => policy.Check(registered, permissions), cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested(); policy.Check(registered, permissions);
+                if (native.Payload is { } payload && Encoding.UTF8.GetByteCount(payload.GetRawText()) > queryLimits.MaxBytes)
+                    return Failure(call, "result_limit", "模型／Dashboard定義超過外送結果預算。");
+                return native;
+            }
+            if (call.Name == "execute_dax_query" && aiOperations?.HasPending == true)
+                return Failure(call, "modification_pending", "本回合有尚未寫入的修改；請先完成預覽與同意，下一回合再查詢新物件。");
             if (registered.Origin == ToolOrigin.McpProcess)
             {
                 if (externalConfirmation is null) return Failure(call, "approval_required", "尚未提供逐次外部操作同意。");
@@ -64,6 +79,7 @@ public sealed class ToolDispatcher(ISemanticModelReader reader, IReadOnlyDaxQuer
                 catch (Exception ex) when (ex is InvalidDataException or System.Text.Json.JsonException or NotSupportedException)
                 { return Failure(call, "invalid_arguments", "Dashboard提案參數不符合結構契約。"); }
             }
+            else if (call.Name == ModelOverview.Definition.Name) ModelOverview.ValidateArguments(call.Arguments);
             else input = ToolArguments.RequiredString(call.Arguments,
                 call.Name == "get_table_details" ? "table" : "dax", call.Name == "get_table_details" ? 128 : 8_000);
             var snapshot = await reader.ReadSnapshotAsync(cancellationToken).WaitAsync(cancellationToken);
@@ -71,6 +87,13 @@ public sealed class ToolDispatcher(ISemanticModelReader reader, IReadOnlyDaxQuer
             if (!session.IsCurrent(permissions)) return Failure(call, "stale_permission", "本回合的授權已變更。");
             if (snapshot.Identity != permissions.Target) return Failure(call, "target_changed", "目標或模型版本已改變，請重新開始回合。");
             policy.Check(registered, permissions);
+            if (call.Name == ModelOverview.Definition.Name)
+            {
+                var payload = ModelOverview.Create(snapshot);
+                if (Encoding.UTF8.GetByteCount(payload.GetRawText()) > queryLimits.MaxBytes)
+                    return Failure(call, "result_limit", "完整模型概覽超過結果預算；請讀取已知表的細節，並明確說明未取得完整關係圖。");
+                return new(call.Id, call.Name, true, "ok", "已讀取唯讀模型概覽；未執行數值查詢或模型修改。", payload);
+            }
             if (plan is not null)
             {
                 try { DashboardPlans.Validate(plan, snapshot); }
@@ -113,8 +136,14 @@ public sealed class ToolDispatcher(ISemanticModelReader reader, IReadOnlyDaxQuer
         { return Failure(call, "invalid_mode", "模式已變更，沒有交付工具結果。"); }
         catch (QueryResultExpiredException)
         { return Failure(call, "result_expired", "查詢結果已過期，沒有提供資料列。"); }
-        catch (ToolInputException)
-        { return Failure(call, "invalid_arguments", "工具參數不符合結構契約。"); }
+        catch (ToolInputException ex)
+        { return Failure(call, "invalid_arguments", ex.Message); }
+        catch (ModelModificationDeniedException)
+        { return Failure(call, "model_modification_disabled", "安全模式或政策變更：沒有交付修改提案。"); }
+        catch (DefinitionConflictException)
+        { return Failure(call, "definition_conflict", "模型版本、物件所有權或Dashboard登記版本不符；沒有寫入。"); }
+        catch (Exception ex) when (ex is InvalidDataException or System.Text.Json.JsonException or NotSupportedException)
+        { return Failure(call, "invalid_definition", "修改參數／登記內容無效、超過限制或無法編譯；沒有寫入。"); }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         { return Failure(call, "query_timeout", "查詢已超時。"); }
         catch (OperationCanceledException) { throw; }

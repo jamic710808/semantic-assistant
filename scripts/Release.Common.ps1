@@ -14,12 +14,14 @@ function Assert-SourceRelativePath([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path) -or $Path -match '[\\\x00-\x1f:]' -or $Path.StartsWith('/') -or $Path -match '(^|/)\.{1,2}(/|$)') {
         throw 'Invalid source archive path.'
     }
-    if ($Path -match '(?i)(^|/)(bin|obj|artifacts|\.git|\.vs|\.idea|TestResults)(/|$)' -or
+    if ($Path -match '(?i)(^|/)(bin|obj|app|artifacts|\.git|\.vs|\.idea|TestResults)(/|$)' -or
         $Path -match '(?i)(^|/)\.env($|\.)' -or $Path -match '(?i)\.(exe|dll|pdb|pbix|pbit|pem|pfx|key|log|zip|nupkg)$') {
         throw 'A generated, secret or model artifact cannot enter a source release.'
     }
     $taskRoots = @('.gitignore', '.gitattributes', 'LICENSE', 'NOTICE', 'README.md', 'CONTRIBUTING.md',
-        'Directory.Build.props', 'NuGet.Config', 'global.json', 'SemanticAssistant.slnx', 'Start-Demo.cmd')
+        'Directory.Build.props', 'NuGet.Config', 'global.json', 'SemanticAssistant.slnx', 'Start-Demo.cmd',
+        'Start-Semantic-Assistant.cmd', '啟動 AI 修正版.cmd', '啟動 Semantic 智能助手.cmd',
+        'third-party/Markdig.LICENSE.txt')
     if ($Path -notin $taskRoots -and ($Path -notmatch '^(\.github|docs|examples|scripts|src|tests)/' -or
         $Path -notmatch '(?i)\.(md|cs|csproj|xaml|json|slnx|props|config|ps1|cmd|yml|yaml|tmdl|txt|rtf)$')) {
         throw 'Source file is outside the reviewed release allowlist.'

@@ -20,6 +20,9 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
         var callIds = new HashSet<string>(StringComparer.Ordinal);
         long sequence = 0;
         var textCharacters = 0;
+        var stage = "turn";
+        var finalAnswer = "";
+        var intent = request.Intent ?? (request.Mode == ConversationMode.Report ? ResponseIntent.Report : ResponseIntent.Analyze);
         var clock = turnClock ?? TimeProvider.System;
         var startedAt = clock.GetTimestamp();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -36,7 +39,7 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
         async Task<ConversationOutcome> End(string code, EventKind kind, string message)
         {
             await Send(kind, message, code: code);
-            return new(request.RequestId, code, results.ToImmutable());
+            return new(request.RequestId, code, results.ToImmutable()) { Answer = code == "ok" ? finalAnswer : "" };
         }
 
         try
@@ -47,9 +50,10 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
             if (modes is not null)
             {
                 if (modeSnapshot is null) throw new ModePolicyException();
-                modes.EnsureRoute(modeSnapshot, ModeRoute.Conversation);
+                modes.EnsureConversation(modeSnapshot);
                 if (modeSnapshot.Target != request.Permissions.Target ||
-                    ModeController.Get(modeSnapshot.Mode).PermissionMode != request.Mode) throw new ModePolicyException();
+                    ModeController.Get(modeSnapshot.Mode).PermissionMode != request.Mode ||
+                    intent != ModeController.Intent(modeSnapshot.Mode)) throw new ModePolicyException();
             }
             ProviderAuthorization? authorization = null;
             if (provider.UsesExternalNetwork)
@@ -65,12 +69,15 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
             if (!Enum.IsDefined(request.Mode)) return await End("invalid_mode", EventKind.Error, "未知的對話模式。");
             if (!session.IsCurrent(request.Permissions) || request.Mode != request.Permissions.Mode)
                 return await End("stale_permission", EventKind.Error, "回合的目標、模式或授權版本不符。");
+            if (!Enum.IsDefined(intent)) throw new ModePolicyException();
+            ConversationContextPolicy.EnsureValid(request.History, authorization, resultClock);
             // Metadata is also sensitive. Never read it when capability was not granted.
             string context = "本回合沒有中繼資料讀取授權。";
             if (request.Permissions.Allows(Capability.MetadataRead) &&
                 (authorization is null || authorization.Allows(EgressCategory.Metadata)))
             {
                 EnsureWithinDeadline();
+                stage = "model_read";
                 var model = await reader.ReadSnapshotAsync(deadline.Token).WaitAsync(deadline.Token);
                 EnsureWithinDeadline();
                 dispatcher.EnsurePolicyCurrent(request.Permissions);
@@ -81,8 +88,10 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                 dispatcher.EnsurePolicyCurrent(request.Permissions);
                 // Formatting strategy runs only after read/egress, session and source guards.
                 if (authorization is not null) authorization.EnsureValid(provider.Identity!);
+                stage = "model_context";
                 context = modelContext.Build(model);
             }
+            stage = "turn";
             var tools = dispatcher.AllowedTools(request.Permissions);
             if (authorization is not null)
                 tools = tools.Where(t => authorization.Allows(ToolPolicyEngine.RequiredEgress(t))).ToImmutableArray();
@@ -93,12 +102,15 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                 if (!session.IsCurrent(request.Permissions))
                     return await End("stale_permission", EventKind.Error, "本回合授權已撤銷。");
                 var called = false;
+                var roundText = new System.Text.StringBuilder();
+                ConversationContextPolicy.EnsureValid(request.History, authorization, resultClock);
                 foreach (var result in results)
                     ToolPolicyEngine.EnsureResultFresh(result, resultClock);
                 if (authorization is not null) authorization.EnsureValid(provider.Identity!);
                 EnsureWithinDeadline();
+                stage = "provider";
                 var stream = provider.StreamAsync(new(request.Message, request.Mode, context, tools, messages.ToImmutable())
-                { Authorization = authorization }, deadline.Token);
+                { Authorization = authorization, Intent = intent, History = request.History }, deadline.Token);
                 var enumerator = stream.GetAsyncEnumerator(deadline.Token);
                 Task<bool>? pendingRead = null;
                 try
@@ -106,11 +118,13 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                     while (true)
                     {
                         EnsureWithinDeadline();
+                        stage = "provider";
                         if (!await (pendingRead = enumerator.MoveNextAsync().AsTask()).WaitAsync(deadline.Token)) break;
                         EnsureWithinDeadline();
                         dispatcher.EnsurePolicyCurrent(request.Permissions);
                         foreach (var result in results)
                             ToolPolicyEngine.EnsureResultFresh(result, resultClock);
+                        ConversationContextPolicy.EnsureValid(request.History, authorization, resultClock);
                         if (!session.IsCurrent(request.Permissions))
                             return await End("stale_permission", EventKind.Error, "已丟棄撤銷授權後的 provider 回應。");
                         if (enumerator.Current is ProviderEvent.Text text)
@@ -118,6 +132,7 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                             textCharacters += text.Value.Length;
                             if (textCharacters > turnLimits.MaxTextCharacters)
                                 return await End("text_limit", EventKind.Error, "文字輸出超過回合上限。");
+                            roundText.Append(text.Value);
                             EnsureWithinDeadline();
                             await Send(EventKind.Text, text.Value);
                         }
@@ -134,6 +149,7 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                                 && dax.ValueKind == System.Text.Json.JsonValueKind.String ? "將執行 DAX：\n" + dax.GetString() : "工具請求已收到。";
                             await Send(EventKind.ToolStarted, preview, call.Name);
                             EnsureWithinDeadline();
+                            stage = "tool";
                             var result = authorization is not null && !tools.Any(t => t.Name == call.Name)
                                 ? new ToolResult(call.Id, call.Name, false, "egress_denied", "工具沒有對應的外送授權。")
                                 : await dispatcher.DispatchAsync(call, request.Permissions, deadline.Token);
@@ -163,6 +179,8 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
                     dispatcher.EnsurePolicyCurrent(request.Permissions);
                     foreach (var result in results)
                         ToolPolicyEngine.EnsureResultFresh(result, resultClock);
+                    ConversationContextPolicy.EnsureValid(request.History, authorization, resultClock);
+                    finalAnswer = roundText.ToString();
                     return await End("ok", EventKind.Completed, "回合完成。");
                 }
             }
@@ -188,8 +206,33 @@ public sealed class ConversationCoordinator(ISemanticModelReader reader, IAiProv
         }
         catch (EgressAuthorizationException)
         { return await End(session.IsCurrent(request.Permissions) ? "egress_denied" : "stale_permission", EventKind.Error, "外送授權已失效，停止後續傳送與工具執行。"); }
+        catch (AiProviderFailureException ex)
+        {
+            var (code, message) = ex.Failure switch
+            {
+                AiProviderFailure.InvalidRequest => ("provider_request_rejected", "AI 端點拒絕請求（HTTP 400／422）；請核對模型與請求參數的相容性。"),
+                AiProviderFailure.Authentication => ("provider_authentication_failed", "AI 端點驗證失敗（HTTP 401）；請在設定中核對 API key。"),
+                AiProviderFailure.AccessDenied => ("provider_access_denied", "AI 端點拒絕存取（HTTP 403）；請核對專案、模型權限或存取政策。"),
+                AiProviderFailure.NotFound => ("provider_not_found", "AI 端點回傳 HTTP 404；請核對端點與模型名稱及帳號存取權。"),
+                AiProviderFailure.RateLimited => ("provider_rate_limited", "AI 端點回傳 HTTP 429；請核對速率限制與 API 配額／餘額。"),
+                AiProviderFailure.ServiceUnavailable => ("provider_service_unavailable", "AI 端點發生服務錯誤（HTTP 5xx）；請稍後重試。"),
+                AiProviderFailure.Network => ("provider_network_error", "無法完成 AI 端點連線；請核對網路、代理伺服器與 TLS 連線。"),
+                AiProviderFailure.Protocol => ("provider_protocol_error", "AI 串流格式或大小不符合限制；可能為格式不相容、回應截斷或超出上限。"),
+                _ => ("provider_error", "AI 端點回傳非預期 HTTP 狀態；重新導向不會自動跟隨。")
+            };
+            return await End(code, EventKind.Error, message);
+        }
         catch (Exception)
-        { return await End("provider_error", EventKind.Error, "回合執行失敗；沒有顯示內部例外內容。"); }
+        {
+            var (code, message) = stage switch
+            {
+                "model_read" => ("model_read_error", "讀取資料模型失敗；請重新選取來源並確認 Power BI 仍在執行。"),
+                "model_context" => ("model_context_error", "建立資料模型摘要失敗；請核對來源與內容預算設定。"),
+                "tool" => ("tool_execution_error", "本機工具執行失敗；請核對工具與來源設定。"),
+                _ => ("provider_error", "回合執行失敗；沒有顯示內部例外內容。")
+            };
+            return await End(code, EventKind.Error, message);
+        }
     }
 
     private static async Task DisposeAfterReadAsync(IAsyncEnumerator<ProviderEvent> enumerator, Task<bool>? pendingRead)

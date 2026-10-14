@@ -28,7 +28,11 @@ public static class TomModelProjection
         if (Encoding.UTF8.GetByteCount(full) > 8_388_608) throw new InvalidDataException("完整模型定義超過上限。");
         var fullBytes = Encoding.UTF8.GetBytes(full);
         return new(new(modelId, db.Name, Convert.ToHexString(SHA256.HashData(fullBytes)).ToLowerInvariant(), false), tables)
-        { Relationships = relationships };
+        {
+            Relationships = relationships,
+            UnsupportedRelationshipNames = db.Model.Relationships.Where(r => r is not SingleColumnRelationship)
+                .Select(r => r.Name).ToImmutableArray()
+        };
     }
 }
 

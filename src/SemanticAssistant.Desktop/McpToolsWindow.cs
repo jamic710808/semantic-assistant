@@ -13,6 +13,8 @@ namespace SemanticAssistant.Desktop;
 internal sealed class McpToolsWindow : Window
 {
     private readonly ModelIdentity target;
+    private readonly ModelModificationPolicy modificationPolicy;
+    private readonly ModelModificationSnapshot modificationEpoch;
     private readonly Action<McpAiToolBinding>? importSelected;
     private readonly Button import = new() { Content = "匯入所選工具供本次AI使用" };
     private McpStdioClient? client;
@@ -34,9 +36,11 @@ internal sealed class McpToolsWindow : Window
     private bool allowClose;
     private Task? shutdown;
 
-    public McpToolsWindow(Window owner, ModelIdentity target, Action<McpAiToolBinding>? importSelected = null)
+    public McpToolsWindow(Window owner, ModelIdentity target, Action<McpAiToolBinding>? importSelected = null, ModelModificationPolicy? modificationPolicy = null)
     {
         this.importSelected = importSelected;
+        this.modificationPolicy = modificationPolicy ?? (owner as MainWindow)?.ModificationPolicy ?? new();
+        modificationEpoch = this.modificationPolicy.Snapshot;
         this.target = target; Owner = owner; Title = "MCP 外部工具 · 逐次同意"; Width = 920; Height = 780;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var panel = new StackPanel { Margin = new Thickness(20) };
@@ -62,15 +66,20 @@ internal sealed class McpToolsWindow : Window
         start.Click += async (_, _) => await StartAsync(); refresh.Click += async (_, _) => await RefreshAsync();
         prepare.Click += async (_, _) => await PrepareAsync(); execute.Click += async (_, _) => await ExecuteAsync(); cancel.Click += (_, _) => running?.Cancel();
         Closing += async (_, e) => { if (allowClose) return; e.Cancel = true; await ShutdownAsync(); };
+        this.modificationPolicy.Changed += OnModificationChanged;
+        Closed += (_, _) => this.modificationPolicy.Changed -= OnModificationChanged;
+        if (!modificationEpoch.Allowed) status.Text = "安全模式不啟動未知副作用的外部程序。請先到權限管理允許模型修改，再重新開啟此視窗。";
         SetBusy(false);
     }
 
     private async Task StartAsync()
     {
+        if (!modificationEpoch.Allowed) { status.Text = "安全模式：沒有啟動外部程序。"; return; }
         if (running is not null) return;
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(25)); running = cancellation; SetBusy(true); ClearDraft();
         try
         {
+            this.modificationPolicy.EnsureAllowed(modificationEpoch);
             var args = StrictJson.Parse<ImmutableArray<string>>(arguments.Text, 16000, 8);
             var env = string.IsNullOrWhiteSpace(environment.Password) ? ImmutableDictionary<string, string>.Empty :
                 StrictJson.Parse<ImmutableDictionary<string, string>>(environment.Password, 16000, 8);
@@ -124,7 +133,8 @@ internal sealed class McpToolsWindow : Window
             var registry = new ToolRegistry(ToolDispatcher.Definitions);
             var selected = new McpAiToolBinding(client, chosen.Tool, target);
             registry.ImportAfterUserSelection(selected);
-            var policy = new ToolPolicyEngine(registry, session);
+            modificationPolicy.EnsureAllowed(modificationEpoch);
+            var policy = new ToolPolicyEngine(registry, session, modificationPolicy: modificationPolicy);
             policy.Check(selected.Descriptor, permissions);
             var approval = await client.ApproveAfterUserConfirmationAsync(chosen.Tool, chosen.Arguments, session, permissions, cancellation.Token);
             policy.Check(selected.Descriptor, permissions);
@@ -137,16 +147,22 @@ internal sealed class McpToolsWindow : Window
         catch { output.Clear(); status.Text = "工具呼叫失敗、取消或授權失效。外部操作可能已執行；沒有自動重試。"; }
         finally { session.Update(target, session.Snapshot.Mode, ImmutableHashSet<Capability>.Empty); running = null; ClearDraft(false); SetBusy(false); }
     }
+    private void OnModificationChanged()
+    {
+        if (Dispatcher.HasShutdownStarted) return;
+        Dispatcher.InvokeAsync(async () => { running?.Cancel(); ClearDraft(); await ShutdownAsync(); });
+    }
     private void ClearDraft(bool clearResult = true)
     { draft = null; approve.IsChecked = false; approve.IsEnabled = false; preview.Clear(); if (clearResult) output.Clear(); }
     private async Task ImportSelectedAsync(bool syntheticConfirmed)
     {
         if (running is not null || client is null || importSelected is null || tools.SelectedItem is not McpToolDescriptor tool) return;
         if (!syntheticConfirmed && MessageBox.Show(this,
-            $"匯入工具：{tool.Name}\n來源：{tool.Source}\n\n工具描述與Schema將在另行外送同意後提供給AI。每次執行仍需預覽參數並同意。程序會保留至來源／模式變更、清除匯入或主視窗關閉。",
+            $"匯入工具：{tool.Name}\n來源：{tool.Source}\n\n允許使用外部工具並送出提問時，工具描述與Schema會提供給目前AI。每次執行仍需預覽參數並同意。程序會保留至來源／模式變更、清除匯入或主視窗關閉。",
             "明確選取外部工具", MessageBoxButton.OKCancel) != MessageBoxResult.OK) return;
         try
         {
+            modificationPolicy.EnsureAllowed(modificationEpoch);
             var binding = new McpAiToolBinding(client, tool, target);
             importSelected(binding); client = null; // Ownership is transferred only after successful registration.
             await ShutdownAsync();
@@ -170,9 +186,10 @@ internal sealed class McpToolsWindow : Window
     }
     private void SetBusy(bool busy)
     {
-        import.IsEnabled = !busy && importSelected is not null && client?.IsAlive == true;
-        start.IsEnabled = !busy; refresh.IsEnabled = !busy && client?.IsAlive == true;
-        prepare.IsEnabled = !busy && client?.IsAlive == true; execute.IsEnabled = !busy && client?.IsAlive == true;
+        var allowed = modificationEpoch.Allowed && modificationPolicy.Snapshot == modificationEpoch;
+        import.IsEnabled = !busy && allowed && importSelected is not null && client?.IsAlive == true;
+        start.IsEnabled = !busy && allowed; refresh.IsEnabled = !busy && allowed && client?.IsAlive == true;
+        prepare.IsEnabled = !busy && allowed && client?.IsAlive == true; execute.IsEnabled = !busy && allowed && client?.IsAlive == true;
         executable.IsEnabled = !busy; arguments.IsEnabled = !busy; environment.IsEnabled = !busy; workingDirectory.IsEnabled = !busy;
         input.IsEnabled = !busy; tools.IsEnabled = !busy; cancel.IsEnabled = busy;
     }

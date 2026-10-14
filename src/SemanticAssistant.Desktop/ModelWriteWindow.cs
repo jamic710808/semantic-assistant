@@ -20,6 +20,7 @@ internal sealed class ModelWriteWindow : Window
     private readonly DispatcherTimer sourceExpiryTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly PermissionSession session;
     private readonly ModelWriteCoordinator coordinator;
+    private readonly ModelModificationPolicy modificationPolicy;
     private readonly TextBox input = new()
     {
         AcceptsReturn = true,
@@ -48,7 +49,7 @@ internal sealed class ModelWriteWindow : Window
 
     public ModelWriteWindow(Window owner, IModelDefinitionWriter writer, ModelIdentity target, string table,
         ImmutableArray<MeasureChange>? initialChanges = null, ModelChanges? initialObjects = null, ModelIdentity? expectedSource = null,
-        QueryResult? sourceResult = null, Action? modeGuard = null, string? storageRoot = null)
+        QueryResult? sourceResult = null, Action? modeGuard = null, string? storageRoot = null, ModelModificationPolicy? modificationPolicy = null)
     {
         this.modeGuard = modeGuard; modeGuard?.Invoke();
         if (sourceResult is not null)
@@ -57,12 +58,13 @@ internal sealed class ModelWriteWindow : Window
             if (sourceResult.Source != target) throw new DefinitionConflictException();
         }
         this.sourceResult = sourceResult;
-        this.writer = writer;
+        this.modificationPolicy = modificationPolicy ?? (owner as MainWindow)?.ModificationPolicy ?? (owner as DashboardWindow)?.ModificationPolicy ?? new();
+        this.writer = this.modificationPolicy.Guard(writer);
         this.expectedSource = expectedSource;
         if (target.IsSynthetic) inputMode.ItemsSource = new[] { "度量值陣列", "混合模型物件 JSON", "載入合成混合範例" };
         session = new(target, ConversationMode.Analyze, ImmutableHashSet.Create(Capability.MetadataRead));
-        coordinator = new(writer, session, new FileModelWriteJournal(System.IO.Path.Combine(storageRoot ?? System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant"), "write-journal")));
+        coordinator = new(this.writer, session, new FileModelWriteJournal(System.IO.Path.Combine(storageRoot ?? System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant"), "write-journal")), this.modificationPolicy);
         Owner = owner; Title = "模型寫入 · 預覽與逐次同意"; Width = 850; Height = 780;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var panel = new StackPanel { Margin = new Thickness(20) }; Content = new ScrollViewer { Content = panel };
@@ -89,7 +91,10 @@ internal sealed class ModelWriteWindow : Window
         };
         sourceExpiryTimer.Tick += (_, _) => ExpireSourceIfNeeded();
         if (sourceResult is not null) sourceExpiryTimer.Start();
-        Closed += (_, _) => { sourceExpiryTimer.Stop(); this.sourceResult = null; input.Clear(); diff.Clear(); };
+        this.modificationPolicy.Changed += OnPolicyChanged;
+        Closed += (_, _) => { this.modificationPolicy.Changed -= OnPolicyChanged; sourceExpiryTimer.Stop(); this.sourceResult = null; input.Clear(); diff.Clear(); };
+        SetBusy(false);
+        if (!this.modificationPolicy.Snapshot.Allowed) status.Text = "安全模式：可讀取與預覽，不能執行模型修改。";
     }
     private async Task PrepareAsync()
     {
@@ -111,13 +116,15 @@ internal sealed class ModelWriteWindow : Window
             if (sourceResult is not null) QueryResultRetention.EnsureFresh(sourceResult);
             cancellation.Token.ThrowIfCancellationRequested();
             diff.Text = preview.Diff + $"\n參數雜湊：{preview.PlanHash}\n\n此預覽沒有執行寫入。";
-            approve.IsEnabled = true; status.Text = "請確認目標與差異，再勾選當次寫入同意。";
+            approve.IsEnabled = true; status.Text = modificationPolicy.Snapshot.Allowed
+                ? "請確認目標與差異，再勾選當次寫入同意。" : "安全模式：僅完成預覽。啟用模型修改後需重新預覽。";
         }
         catch { ClearPreview(); status.Text = "預覽失敗：請檢查 JSON、表／物件名稱、版本與所有權。沒有執行寫入。"; }
         finally { running = null; SetBusy(false); if (closeRequested) Close(); }
     }
     private async Task ApplyAsync()
     {
+        if (!modificationPolicy.Snapshot.Allowed) { status.Text = "安全模式：禁止修改資料模型。請到權限管理開啟後重新預覽。"; return; }
         ExpireSourceIfNeeded();
         if (running is not null || sourceExpired || preview is null || approve.IsChecked != true)
         { status.Text = "尚未完成當次預覽與同意；沒有寫入。"; return; }
@@ -147,7 +154,21 @@ internal sealed class ModelWriteWindow : Window
     }
     private void ClearPreview() { preview = null; approve.IsChecked = false; approve.IsEnabled = false; apply.IsEnabled = false; }
     private void SetBusy(bool busy)
-    { inputMode.IsEnabled = input.IsEnabled = !busy && !sourceExpired; prepare.IsEnabled = !busy && !sourceExpired; apply.IsEnabled = !busy && !sourceExpired && preview is not null; cancel.IsEnabled = busy; }
+    {
+        inputMode.IsEnabled = input.IsEnabled = !busy && !sourceExpired; prepare.IsEnabled = !busy && !sourceExpired;
+        apply.IsEnabled = approve.IsEnabled = !busy && !sourceExpired && preview is not null && modificationPolicy.Snapshot.Allowed;
+        cancel.IsEnabled = busy;
+    }
+    private void OnPolicyChanged()
+    {
+        if (Dispatcher.HasShutdownStarted) return;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            session.Update(session.Snapshot.Target, session.Snapshot.Mode, ImmutableHashSet<Capability>.Empty);
+            running?.Cancel(); ClearPreview(); SetBusy(running is not null);
+            status.Text = "模型修改政策已切換；舊預覽與同意失效。請重新預覽。";
+        }));
+    }
 
     private void LimitToSourceLifetime(CancellationTokenSource cancellation, TimeSpan operationLimit)
     {

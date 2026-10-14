@@ -27,6 +27,8 @@ public sealed record ProviderRequest(string UserMessage, ConversationMode Mode, 
     ImmutableArray<ToolDefinition> Tools, ImmutableArray<ProviderMessage> Messages)
 {
     public ProviderAuthorization? Authorization { get; init; }
+    public ResponseIntent Intent { get; init; } = Mode == ConversationMode.Report ? ResponseIntent.Report : ResponseIntent.Analyze;
+    public ImmutableArray<ConversationContextMessage> History { get; init; } = [];
 }
 public abstract record ProviderEvent
 {

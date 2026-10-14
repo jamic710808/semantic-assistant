@@ -24,7 +24,7 @@ public sealed class DemoAiProvider : IAiProvider
             yield return new ProviderEvent.Text("工具未成功；本回合保留錯誤狀態，沒有編造資料。\n");
             yield break;
         }
-        if (request.UserMessage.Contains("Dashboard", StringComparison.OrdinalIgnoreCase) || request.UserMessage.Contains("儀表板"))
+        if (request.Intent == ResponseIntent.Dashboard || request.UserMessage.Contains("Dashboard", StringComparison.OrdinalIgnoreCase) || request.UserMessage.Contains("儀表板"))
         {
             if (results.All(r => r.ToolName != DashboardProposals.Definition.Name) && request.Tools.Any(t => t.Name == DashboardProposals.Definition.Name))
             {
@@ -41,7 +41,9 @@ public sealed class DemoAiProvider : IAiProvider
         {
             if (!request.Tools.Any(t => t.Name == "execute_dax_query"))
             {
-                yield return new ProviderEvent.Text("目前未授權數值查詢。請勾選「允許示範數值查詢」後開始新回合。\n");
+                yield return new ProviderEvent.Text(request.Intent is ResponseIntent.Report or ResponseIntent.HtmlReport
+                    ? "# 合成模型結構報告\n\n## 摘要\n示範模型包含銷售與日期兩張表。\n\n## 資料與限制\n目前未授權數值查詢，因此沒有營運數值結論。這是本機固定示範，非真實 AI。\n"
+                    : "目前未授權數值查詢。請勾選「允許示範數值查詢」後開始新回合。\n");
                 yield break;
             }
             yield return new ProviderEvent.Text("接著透過受限工具取得合成數值。\n");
@@ -49,8 +51,11 @@ public sealed class DemoAiProvider : IAiProvider
             yield break;
         }
         var query = results.Select(r => r.Query).FirstOrDefault(q => q is not null);
-        yield return new ProviderEvent.Text(query is null
+        var answer = query is null
             ? "示範模型包含銷售與日期兩張表；銷售額度量值以金額加總。這些結構是新專案自行建立的合成範例。\n"
-            : $"已取得 {query.Rows.Length} 列合成資料。可在右側查看查詢來源；勾選報告匯出授權後產生離線 HTML。\n");
+            : $"已取得 {query.Rows.Length} 列合成資料。可在右側查看查詢來源；勾選報告匯出授權後產生離線 HTML。\n";
+        if (request.Intent is ResponseIntent.Report or ResponseIntent.HtmlReport)
+            answer = "# 合成模型分析報告\n\n## 摘要\n" + answer + "\n## 建議與限制\n這是本機固定示範，不代表真實 AI 分析。";
+        yield return new ProviderEvent.Text(answer);
     }
 }

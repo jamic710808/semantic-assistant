@@ -38,7 +38,7 @@ public sealed class PreferredContextTables(ImmutableArray<string> preferredNames
 
 // Pure formatting: the coordinator must authorize reading and egress before calling this.
 // Strategies are trusted host code, not plugins or instructions supplied by the model.
-public sealed class ModelContextBuilder(IContextTableSelector? selector = null, ContextBudget? budget = null)
+public sealed class ModelContextBuilder(IContextTableSelector? selector = null, ContextBudget? budget = null, string? displayName = null)
 {
     private readonly IContextTableSelector tableSelector = selector ?? new FirstContextTables();
     private readonly ContextBudget contextBudget = budget ?? new();
@@ -50,11 +50,12 @@ public sealed class ModelContextBuilder(IContextTableSelector? selector = null, 
         var available = names.ToHashSet(StringComparer.Ordinal);
         var selected = new HashSet<string>(StringComparer.Ordinal);
         var result = new StringBuilder();
-        result.Append("來源：").Append(JsonSerializer.Serialize(Clip(snapshot.Identity.Name, 128)));
+        var counts = $"總數：表{snapshot.Tables.Length}、欄位{snapshot.Tables.Sum(t => t.Columns.Length)}、度量值{snapshot.Tables.Sum(t => t.Measures.Length)}、關係{snapshot.Relationships.Length + snapshot.UnsupportedRelationshipNames.Length}；";
+        result.Append(counts).Append("來源：").Append(JsonSerializer.Serialize(Clip(displayName ?? snapshot.Identity.Name, 128)));
         result.Append("; 合成示範：").Append(snapshot.Identity.IsSynthetic).Append("; 表：");
         // JSON escaping can expand names. Omit rather than emit a cut JSON string.
         if (result.Length > contextBudget.MaxCharacters)
-            result.Clear().Append("來源名稱超過摘要預算，已省略；合成示範：")
+            result.Clear().Append(counts).Append("來源名稱省略；合成示範：")
                 .Append(snapshot.Identity.IsSynthetic).Append("; 表：");
         var inspected = 0;
         foreach (var name in tableSelector.Select(names))
@@ -68,6 +69,19 @@ public sealed class ModelContextBuilder(IContextTableSelector? selector = null, 
             result.Append(separator).Append(encoded);
             selected.Add(name);
         }
+        // Never split JSON or describe a budget-limited summary as the whole graph.
+        const string overviewHint = "\n完整結構用get_model_overview；公式用get_table_details。";
+        if (result.Length + overviewHint.Length <= contextBudget.MaxCharacters) result.Append(overviewHint);
+        var shownRelationships = 0;
+        foreach (var relationship in snapshot.Relationships)
+        {
+            var line = "\n關係：" + ContractJson.Element(relationship).GetRawText();
+            const int coverageReserve = 72;
+            if (result.Length + line.Length + coverageReserve > contextBudget.MaxCharacters) continue;
+            result.Append(line); shownRelationships++;
+        }
+        var coverage = $"\n摘要含{shownRelationships}/{snapshot.Relationships.Length}條已投影關係；未支援關係{snapshot.UnsupportedRelationshipNames.Length}條。";
+        if (result.Length + coverage.Length <= contextBudget.MaxCharacters) result.Append(coverage);
         return result.ToString();
     }
 

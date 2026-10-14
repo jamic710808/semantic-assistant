@@ -1,0 +1,33 @@
+<Window x:Class="SemanticAssistant.Desktop.AboutWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="關於" Width="410" Height="470" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+ FontFamily="Microsoft JhengHei UI" FontSize="13" Foreground="#244D66" ShowInTaskbar="False">
+ <Window.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F8EAF5" Offset="0"/><GradientStop Color="#E7EFFF" Offset="1"/></LinearGradientBrush></Window.Background>
+ <Grid Margin="24,25,24,18" TextElement.FontFamily="Microsoft JhengHei UI" TextElement.FontSize="13" TextElement.Foreground="#244D66">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel HorizontalAlignment="Center">
+   <Grid Width="66" Height="66" Margin="0,0,0,18" AutomationProperties.Name="Semantic 智能助手標誌">
+    <Ellipse Stroke="#185779" StrokeThickness="2.2"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Height="30">
+     <Rectangle Width="5" Height="13" Fill="#185779" Margin="0,0,3,0" VerticalAlignment="Bottom" RadiusX="1" RadiusY="1"/>
+     <Rectangle Width="5" Height="22" Fill="#185779" Margin="0,0,3,0" VerticalAlignment="Bottom" RadiusX="1" RadiusY="1"/>
+     <Rectangle Width="5" Height="17" Fill="#185779" Margin="0,0,3,0" VerticalAlignment="Bottom" RadiusX="1" RadiusY="1"/>
+     <Rectangle Width="5" Height="29" Fill="#185779" VerticalAlignment="Bottom" RadiusX="1" RadiusY="1"/>
+    </StackPanel>
+   </Grid>
+   <TextBlock Text="Semantic 智能助手" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,7"/>
+   <TextBlock x:Name="VersionText" Foreground="#607D92" HorizontalAlignment="Center" Margin="0,0,0,6" AutomationProperties.Name="程式版本"/>
+   <TextBlock x:Name="BuildTimeText" FontSize="11" Foreground="#77869B" HorizontalAlignment="Center" AutomationProperties.Name="編譯時間"/>
+  </StackPanel>
+  <StackPanel Grid.Row="1" VerticalAlignment="Center">
+   <TextBlock Text="可開源維護的 Power BI 智能分析助手，提供模型探索、AI 對話、DAX 查詢，以及報告與 Dashboard 產生功能。"
+              TextWrapping="Wrap" TextAlignment="Center" LineHeight="21" Margin="0,0,0,20"/>
+   <TextBlock Text="原始碼與問題回報" TextAlignment="Center" FontSize="12" Margin="0,0,0,6"/>
+   <TextBlock TextAlignment="Center" FontSize="11"><Hyperlink NavigateUri="https://github.com/jamic710808/semantic-assistant" RequestNavigate="OnOpenRepository">github.com/jamic710808/semantic-assistant</Hyperlink></TextBlock>
+  </StackPanel>
+  <TextBlock Grid.Row="2" Text="Semantic Assistant · 自有原始碼採 MIT 授權" TextAlignment="Center" Foreground="#93A0B0" FontSize="11" Margin="0,0,0,20"/>
+  <Button Grid.Row="3" Content="確定" Width="100" Height="29" Padding="0" Margin="0" HorizontalAlignment="Center"
+          Background="#007ED8" BorderBrush="#007ED8" Foreground="White" IsDefault="True" IsCancel="True" Click="OnConfirm"/>
+ </Grid>
+</Window>

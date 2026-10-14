@@ -17,7 +17,7 @@ public interface IAssistantSettingsStore
 // Fixed own namespace supplied by the host; no source/model/provider-controlled paths.
 public sealed class FileAssistantSettingsStore : IAssistantSettingsStore
 {
-    private const int MaximumBytes = 16_000;
+    private const int MaximumBytes = 128_000;
     private static readonly UTF8Encoding Utf8 = new(false, true);
     private readonly string folder;
     private readonly string file;
@@ -75,6 +75,41 @@ public sealed class FileAssistantSettingsStore : IAssistantSettingsStore
             if (Load().Status is SettingsLoadStatus.Unsupported or SettingsLoadStatus.Invalid or SettingsLoadStatus.Unavailable)
                 throw new InvalidDataException("不覆寫未知、無效或無法驗證的設定檔。");
             Directory.CreateDirectory(folder); CheckPath();
+            if (File.Exists(file))
+            {
+                var original = ReadBounded();
+                using var originalDocument = JsonDocument.Parse(original);
+                if (settings.FullAccessDefaultsApplied && !originalDocument.RootElement.TryGetProperty("FullAccessDefaultsApplied", out _))
+                {
+                    var backup = Path.Combine(folder, "settings-before-full-access-" + Guid.NewGuid().ToString("N") + ".json");
+                    using var preserved = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    preserved.Write(Utf8.GetBytes(original)); preserved.Flush(true);
+                }
+                if (!settings.AiProfiles.IsEmpty && !originalDocument.RootElement.TryGetProperty("AiProfiles", out _))
+                {
+                    var backup = Path.Combine(folder, "settings-before-ai-profiles-" + Guid.NewGuid().ToString("N") + ".json");
+                    using var preserved = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    preserved.Write(Utf8.GetBytes(original)); preserved.Flush(true);
+                }
+                if (!originalDocument.RootElement.TryGetProperty("Templates", out _))
+                {
+                    var backup = Path.Combine(folder, "settings-before-report-templates-" + Guid.NewGuid().ToString("N") + ".json");
+                    using var preserved = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    preserved.Write(Utf8.GetBytes(original)); preserved.Flush(true);
+                }
+                if (!originalDocument.RootElement.TryGetProperty("AllowModelModification", out _))
+                {
+                    var backup = Path.Combine(folder, "settings-before-model-permissions-" + Guid.NewGuid().ToString("N") + ".json");
+                    using var preserved = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    preserved.Write(Utf8.GetBytes(original)); preserved.Flush(true);
+                }
+                if (!originalDocument.RootElement.TryGetProperty("QuickQuestions", out _))
+                {
+                    var backup = Path.Combine(folder, "settings-before-quick-questions-" + Guid.NewGuid().ToString("N") + ".json");
+                    using var preserved = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    preserved.Write(Utf8.GetBytes(original)); preserved.Flush(true);
+                }
+            }
             var temporary = Path.Combine(folder, "settings-" + Guid.NewGuid().ToString("N") + ".tmp");
             var created = false;
             try

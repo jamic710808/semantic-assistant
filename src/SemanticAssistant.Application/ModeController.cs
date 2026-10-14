@@ -17,12 +17,13 @@ public sealed class ModeController
     private ModeSnapshot current;
     public static ImmutableArray<ModeDefinition> Definitions { get; } =
     [
-        new(AssistantMode.Analyze, "結構與分析", ModeRoute.Conversation, ConversationMode.Analyze, [Capability.MetadataRead, Capability.DataQuery, Capability.ExternalTool]),
-        new(AssistantMode.Report, "報告模式", ModeRoute.Conversation, ConversationMode.Report, [Capability.MetadataRead, Capability.DataQuery, Capability.ExternalTool]),
-        new(AssistantMode.HtmlFile, "HTML 檔案", ModeRoute.HtmlFile, ConversationMode.Report, [Capability.ArtifactWrite]),
+        new(AssistantMode.Analyze, "結構與分析", ModeRoute.Conversation, ConversationMode.Analyze, [Capability.MetadataRead, Capability.DataQuery, Capability.ExternalTool, Capability.DefinitionWrite]),
+        new(AssistantMode.Report, "報告模式", ModeRoute.Conversation, ConversationMode.Report, [Capability.MetadataRead, Capability.DataQuery, Capability.ExternalTool, Capability.DefinitionWrite]),
+        new(AssistantMode.HtmlFile, "HTML 檔案", ModeRoute.HtmlFile, ConversationMode.Report,
+            [Capability.MetadataRead, Capability.DataQuery, Capability.ExternalTool, Capability.ArtifactWrite]),
         new(AssistantMode.HtmlMeasure, "HTML 度量值", ModeRoute.HtmlMeasure, ConversationMode.Analyze, [Capability.MetadataRead, Capability.DefinitionWrite]),
         new(AssistantMode.Dashboard, "Dashboard", ModeRoute.Dashboard, ConversationMode.Report,
-            [Capability.MetadataRead, Capability.DefinitionWrite, Capability.DataQuery, Capability.ArtifactWrite])
+            [Capability.MetadataRead, Capability.ExternalTool, Capability.DefinitionWrite, Capability.DataQuery, Capability.ArtifactWrite])
     ];
 
     public ModeController(AssistantMode mode, ModelIdentity target)
@@ -34,6 +35,20 @@ public sealed class ModeController
         lock (sync) return current = current with { Version = current.Version + 1, Mode = mode, Target = target };
     }
     public static ModeDefinition Get(AssistantMode mode) => Definitions.FirstOrDefault(d => d.Mode == mode) ?? throw new ModePolicyException();
+    // Route still identifies the explicit artifact operation. All four primary modes
+    // also have a natural-language entry, without granting artifact/write approval.
+    public void EnsureConversation(ModeSnapshot snapshot)
+    {
+        lock (sync) if (snapshot != current || snapshot.Mode == AssistantMode.HtmlMeasure) throw new ModePolicyException();
+    }
+    public static ResponseIntent Intent(AssistantMode mode) => mode switch
+    {
+        AssistantMode.Analyze => ResponseIntent.Analyze,
+        AssistantMode.Report => ResponseIntent.Report,
+        AssistantMode.HtmlFile => ResponseIntent.HtmlReport,
+        AssistantMode.Dashboard => ResponseIntent.Dashboard,
+        _ => throw new ModePolicyException()
+    };
     public void EnsureRoute(ModeSnapshot snapshot, ModeRoute route)
     {
         lock (sync) if (snapshot != current || Get(snapshot.Mode).Route != route) throw new ModePolicyException();

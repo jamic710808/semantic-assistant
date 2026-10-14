@@ -5,6 +5,7 @@ namespace SemanticAssistant.Contracts;
 
 public enum Capability { MetadataRead, DataQuery, ArtifactWrite, ExternalTool, DefinitionWrite }
 public enum ConversationMode { Analyze, Report }
+public enum ResponseIntent { Analyze, Report, HtmlReport, Dashboard }
 public enum EventKind { Started, Text, ToolStarted, ToolCompleted, Completed, Cancelled, Error }
 public enum EgressCategory { UserMessage, Metadata, QueryResults, ExternalToolData }
 public sealed record ProviderIdentity(string Id, string Endpoint, string Model);
@@ -20,6 +21,8 @@ public sealed record RelationshipDefinition(string Name, string FromTable, strin
 public sealed record ModelSnapshot(ModelIdentity Identity, ImmutableArray<TableDefinition> Tables)
 {
     public ImmutableArray<RelationshipDefinition> Relationships { get; init; } = [];
+    // A missing projection must never be interpreted as proof of a disconnected table.
+    public ImmutableArray<string> UnsupportedRelationshipNames { get; init; } = [];
 }
 
 // A turn pins its model identity and capabilities. UI changes apply to the next turn.
@@ -55,8 +58,20 @@ public sealed record ToolResult(string CallId, string ToolName, bool Success, st
 // Versioned UI event contract; no raw query rows or secrets in diagnostic events.
 public sealed record ConversationEvent(int Version, Guid RequestId, long Sequence, EventKind Kind,
     string Message, string? ToolName = null, string? Code = null);
-public sealed record ConversationRequest(Guid RequestId, string Message, ConversationMode Mode, PermissionSnapshot Permissions);
-public sealed record ConversationOutcome(Guid RequestId, string Code, ImmutableArray<ToolResult> ToolResults);
+public sealed record ConversationContextMessage(string Role, string Content, ImmutableHashSet<EgressCategory> Categories)
+{
+    // Evidence remains in memory only; the provider receives Content, never this object.
+    public ImmutableArray<ToolResult> Evidence { get; init; } = [];
+}
+public sealed record ConversationRequest(Guid RequestId, string Message, ConversationMode Mode, PermissionSnapshot Permissions)
+{
+    public ResponseIntent? Intent { get; init; }
+    public ImmutableArray<ConversationContextMessage> History { get; init; } = [];
+}
+public sealed record ConversationOutcome(Guid RequestId, string Code, ImmutableArray<ToolResult> ToolResults)
+{
+    public string Answer { get; init; } = "";
+}
 
 public static class ContractJson
 {

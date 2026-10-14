@@ -41,8 +41,9 @@ public interface IModelDefinitionWriter
 public sealed class DefinitionConflictException() : Exception("模型定義／物件所有權已改變。");
 public sealed class ModelWriteApproval
 {
-    internal ModelWriteApproval(Guid coordinator, DefinitionPreview preview, PermissionSnapshot permissions)
-    { Coordinator = coordinator; Preview = preview; Permissions = permissions; ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(1); }
+    internal ModelWriteApproval(Guid coordinator, DefinitionPreview preview, PermissionSnapshot permissions, ModelModificationSnapshot? modification = null)
+    { Coordinator = coordinator; Preview = preview; Permissions = permissions; Modification = modification; ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(1); }
+    internal ModelModificationSnapshot? Modification { get; }
     internal Guid Coordinator { get; }
     internal DefinitionPreview Preview { get; }
     internal PermissionSnapshot Permissions { get; }
@@ -107,10 +108,13 @@ public static partial class DefinitionRules
     public static string HashPlan(DefinitionPlan plan) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(plan)));
 }
 
-public sealed class ModelWriteCoordinator(IModelDefinitionWriter writer, PermissionSession session, IModelWriteJournal? journal = null)
+public sealed class ModelWriteCoordinator(IModelDefinitionWriter writer, PermissionSession session, IModelWriteJournal? journal = null,
+    ModelModificationPolicy? modificationPolicy = null)
 {
     private readonly Guid identity = Guid.NewGuid();
+    private readonly IModelDefinitionWriter guardedWriter = modificationPolicy?.Guard(writer) ?? writer;
     private readonly Dictionary<Guid, DefinitionPreview> previews = [];
+    private readonly Dictionary<Guid, ModelModificationSnapshot> previewPolicies = [];
     private readonly Dictionary<Guid, (string Hash, WriteOutcome Outcome)> receipts = [];
     private readonly SemaphoreSlim serial = new(1);
 
@@ -121,8 +125,9 @@ public sealed class ModelWriteCoordinator(IModelDefinitionWriter writer, Permiss
     public async Task<DefinitionPreview> PrepareAsync(ModelChanges changes, PermissionSnapshot permissions,
         CancellationToken token, Guid? operationId = null)
     {
+        var epoch = modificationPolicy?.Snapshot;
         CheckPermission(permissions, Capability.MetadataRead); token.ThrowIfCancellationRequested();
-        var before = await writer.ReadDefinitionAsync(token).WaitAsync(token);
+        var before = await guardedWriter.ReadDefinitionAsync(token).WaitAsync(token);
         CheckPermission(permissions, Capability.MetadataRead);
         if (before.Identity != permissions.Target) throw new DefinitionConflictException();
         var plan = new DefinitionPlan(operationId ?? Guid.NewGuid(), before.Identity, before.Revision, changes.Measures)
@@ -136,7 +141,13 @@ public sealed class ModelWriteCoordinator(IModelDefinitionWriter writer, Permiss
         }
         DefinitionRules.AppendObjectDiff(plan, before, diff);
         var preview = new DefinitionPreview(Guid.NewGuid(), plan, DefinitionRules.HashPlan(plan), before, diff.ToString());
-        lock (previews) { if (previews.Count >= 128) previews.Clear(); previews.Add(preview.Id, preview); }
+        if (epoch is not null) modificationPolicy!.EnsureCurrent(epoch);
+        lock (previews)
+        {
+            if (previews.Count >= 128) { previews.Clear(); previewPolicies.Clear(); }
+            previews.Add(preview.Id, preview);
+            if (epoch is not null) previewPolicies.Add(preview.Id, epoch);
+        }
         return preview;
     }
 
@@ -145,7 +156,13 @@ public sealed class ModelWriteCoordinator(IModelDefinitionWriter writer, Permiss
         CheckPermission(permissions, Capability.DefinitionWrite);
         lock (previews) if (!previews.TryGetValue(preview.Id, out var issued) || issued != preview || preview.Plan.Target != permissions.Target ||
             preview.PlanHash != DefinitionRules.HashPlan(preview.Plan)) throw new UnauthorizedAccessException("預覽已變更。");
-        return new(identity, preview, permissions);
+        ModelModificationSnapshot? epoch = null;
+        if (modificationPolicy is not null)
+        {
+            lock (previews) epoch = previewPolicies.TryGetValue(preview.Id, out var issuedEpoch) ? issuedEpoch : throw new ModelModificationDeniedException();
+            modificationPolicy.EnsureAllowed(epoch);
+        }
+        return new(identity, preview, permissions, epoch);
     }
 
     public async Task<WriteOutcome> ApplyAsync(DefinitionPreview preview, ModelWriteApproval? approval,
@@ -154,32 +171,37 @@ public sealed class ModelWriteCoordinator(IModelDefinitionWriter writer, Permiss
         await serial.WaitAsync(token);
         bool attempted = false;
         IModelWriteAudit? audit = null;
-        try
+        void EnsureWriteAuthorization()
         {
             CheckPermission(permissions, Capability.DefinitionWrite);
+            if (modificationPolicy is not null) modificationPolicy.EnsureAllowed(approval?.Modification ?? throw new ModelModificationDeniedException());
+        }
+        try
+        {
+            EnsureWriteAuthorization();
             if (approval is null || approval.Coordinator != identity || approval.Preview != preview || approval.Permissions != permissions ||
                 approval.ExpiresAt <= DateTimeOffset.UtcNow || preview.PlanHash != DefinitionRules.HashPlan(preview.Plan))
                 return new("approval_denied", false, false, "缺少符合本次預覽、目標與參數的逐次同意。");
             if (receipts.TryGetValue(preview.Plan.OperationId, out var receipt))
             {
                 if (receipt.Hash != preview.PlanHash) return new("operation_collision", false, false, "操作 ID 已用於不同參數。");
-                var current = await writer.ReadDefinitionAsync(token).WaitAsync(token);
-                CheckPermission(permissions, Capability.DefinitionWrite);
+                var current = await guardedWriter.ReadDefinitionAsync(token).WaitAsync(token);
+                EnsureWriteAuthorization();
                 return receipt.Outcome.Success && DefinitionRules.MatchesApplied(preview.Plan, current)
                     ? receipt.Outcome with { Code = "already_applied", After = current }
                     : new("receipt_stale", false, true, "先前操作結果已變更或失敗；沒有自動重試。");
             }
             if (Interlocked.Exchange(ref approval.Used, 1) != 0) return new("approval_used", false, false, "當次同意已使用。");
-            var before = await writer.ReadDefinitionAsync(token).WaitAsync(token);
-            CheckPermission(permissions, Capability.DefinitionWrite); token.ThrowIfCancellationRequested();
+            var before = await guardedWriter.ReadDefinitionAsync(token).WaitAsync(token);
+            EnsureWriteAuthorization(); token.ThrowIfCancellationRequested();
             DefinitionRules.ValidatePlan(preview.Plan, before);
             if (receipts.Count >= 256) return new("operation_limit", false, false, "本次工作階段操作已達上限；沒有開始寫入。");
             audit = journal?.Begin(preview);
             attempted = true;
-            await writer.ApplyAsync(preview.Plan, () => { CheckPermission(permissions, Capability.DefinitionWrite); token.ThrowIfCancellationRequested(); }, token);
-            CheckPermission(permissions, Capability.DefinitionWrite); token.ThrowIfCancellationRequested();
-            var after = await writer.ReadDefinitionAsync(token).WaitAsync(token);
-            CheckPermission(permissions, Capability.DefinitionWrite);
+            await guardedWriter.ApplyAsync(preview.Plan, () => { EnsureWriteAuthorization(); token.ThrowIfCancellationRequested(); }, token);
+            EnsureWriteAuthorization(); token.ThrowIfCancellationRequested();
+            var after = await guardedWriter.ReadDefinitionAsync(token).WaitAsync(token);
+            EnsureWriteAuthorization();
             if (!DefinitionRules.MatchesApplied(preview.Plan, after)) throw new DefinitionConflictException();
             var success = new WriteOutcome("ok", true, false, "修改已回讀驗證；僅處理本程式擁有的模型物件。", after);
             receipts[preview.Plan.OperationId] = (preview.PlanHash, success);
@@ -196,12 +218,12 @@ public sealed class ModelWriteCoordinator(IModelDefinitionWriter writer, Permiss
             WriteOutcome outcome;
             try
             {
-                var current = await writer.ReadDefinitionAsync(repair.Token).WaitAsync(repair.Token);
+                var current = await guardedWriter.ReadDefinitionAsync(repair.Token).WaitAsync(repair.Token);
                 DefinitionRules.ValidateRollback(preview, current);
                 // Do not detach a native restore that could still be saving after the UI closes.
                 if (!DefinitionRules.MatchesBefore(preview, current))
-                    await writer.RestoreAsync(preview, current, repair.Token);
-                var restored = await writer.ReadDefinitionAsync(repair.Token).WaitAsync(repair.Token);
+                    await guardedWriter.RestoreAsync(preview, current, repair.Token);
+                var restored = await guardedWriter.ReadDefinitionAsync(repair.Token).WaitAsync(repair.Token);
                 if (!DefinitionRules.MatchesBefore(preview, restored)) throw new DefinitionConflictException();
                 outcome = new("failed_rolled_back", false, false, "寫入或驗證失敗；當次自有物件已回讀確認還原。", restored);
             }

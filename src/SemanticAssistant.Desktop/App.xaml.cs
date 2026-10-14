@@ -13,6 +13,37 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Length == 2 && e.Args[0] == "--render-about")
+        {
+            RenderUiPreview(e.Args[1], aboutPreview: true); return;
+        }
+        if (e.Args.Length == 2 && e.Args[0] == "--render-readable-chat")
+        {
+            MarkdownLayoutPreview.Write(e.Args[1]); Shutdown(0); return;
+        }
+        if (e.Args.Length == 2 && e.Args[0] is "--render-quick-questions" or "--render-quick-questions-cloud")
+        {
+            RenderUiPreview(e.Args[1], quickQuestionsPreview: e.Args[0] == "--render-quick-questions-cloud"); return;
+        }
+        if (e.Args.Length == 2 && e.Args[0] is "--render-permissions" or "--render-permissions-enabled")
+        {
+            RenderUiPreview(e.Args[1], permissionsPreview: e.Args[0] == "--render-permissions-enabled"); return;
+        }
+        if (e.Args.Length == 2 && e.Args[0] == "--render-template-examples")
+        {
+            TemplatePreview.WriteExamples(Path.GetFullPath(e.Args[1])); Shutdown(0); return;
+        }
+        if (e.Args.Length == 2 && e.Args[0] is "--render-templates-measure" or "--render-templates-file" or "--render-templates-dashboard")
+        {
+            var output = e.Args[0] switch { "--render-templates-file" => SemanticAssistant.Application.ReportOutputKind.HtmlFile,
+                "--render-templates-dashboard" => SemanticAssistant.Application.ReportOutputKind.Dashboard, _ => SemanticAssistant.Application.ReportOutputKind.ReportMeasure };
+            RenderUiPreview(e.Args[1], templateOutput: output); return;
+        }
+        if (e.Args.Length == 2 && e.Args[0] is "--render-ui-preview" or "--render-report-picker" or "--render-ai-profiles")
+        {
+            RenderUiPreview(e.Args[1], e.Args[0] == "--render-report-picker", e.Args[0] == "--render-ai-profiles");
+            return;
+        }
         if (startupWindowFactory is not null)
         {
             var isolatedWindow = startupWindowFactory();
@@ -28,7 +59,10 @@ public partial class App : System.Windows.Application
             Path.GetDirectoryName(Path.GetFullPath(e.Args[1]))!, "history-fixture-" + Guid.NewGuid().ToString("N")), Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant", "reports")) : null;
         var window = new MainWindow(smokeStore, restoreSettings: !smoke, historyStore: smokeHistory);
+        if (smoke) window.EnableSyntheticModificationFixture();
         MainWindow = window;
+        if (!smoke)
+            window.ContentRendered += async (_, _) => await window.DetectStartupReportsAsync();
         window.Show();
         // Headless CI smoke still constructs and loads the actual WPF window.
         if (smoke)
@@ -88,5 +122,58 @@ public partial class App : System.Windows.Application
                 }
             };
         }
+    }
+
+    // Render our own synthetic WPF view without showing a native window,
+    // restoring preferences, reading credentials or connecting to a model.
+    private void RenderUiPreview(string destination, bool reportPicker = false, bool aiProfiles = false,
+        SemanticAssistant.Application.ReportOutputKind? templateOutput = null, bool? permissionsPreview = null, bool? quickQuestionsPreview = null, bool aboutPreview = false)
+    {
+        var path = Path.GetFullPath(destination);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var window = new MainWindow(restoreSettings: false, storageRoot: Path.Combine(Path.GetDirectoryName(path)!, "preview-state"));
+        MainWindow = window;
+        var scene = reportPicker ? (Window)new DesktopReportPicker(window,
+            [new(new("synthetic-preview-workspace", new(64567, 1, 1)), "SemanticAssistantSynthetic（合成預覽）", null)],
+            () => Task.FromResult(System.Collections.Immutable.ImmutableArray<SemanticAssistant.Adapters.PowerBI.Local.DesktopReportCandidate>.Empty)) : window;
+        if (aiProfiles)
+        {
+            var sample = new SemanticAssistant.Contracts.ProviderIdentity("preview-profile-luna", "https://api.openai.com/v1/chat/completions", "gpt-6-luna");
+            var previewSettings = SemanticAssistant.Application.AssistantSettings.Default with
+            {
+                AiProvider = sample,
+                AiProfiles = [new("OpenAI Luna（合成預覽）", sample),
+                    new("本機服務（合成預覽）", new("preview-profile-local", "http://127.0.0.1:1234/v1/chat/completions", "local-model"))]
+            };
+            scene = new AiProfilesWindow(window, previewSettings, new SemanticAssistant.Adapters.AI.WindowsCredentialVault(),
+                (_, _) => throw new InvalidOperationException("合成預覽不保存設定。"));
+        }
+        if (templateOutput is { } output)
+            scene = new TemplatesWindow(window, SemanticAssistant.Application.TemplatePreferences.Default,
+                _ => throw new InvalidOperationException("合成預覽不保存設定。"), Path.Combine(Path.GetDirectoryName(path)!, "preview-state"), output);
+        if (permissionsPreview is { } allowed)
+            scene = new PermissionsWindow(window, allowed, _ => throw new InvalidOperationException("合成預覽不保存設定。"));
+        if (quickQuestionsPreview is { } cloud)
+            scene = new QuickQuestionsWindow(window, SemanticAssistant.Application.QuickQuestionSettings.Default,
+                _ => throw new InvalidOperationException("合成預覽不保存設定。"), cloud);
+        if (aboutPreview) scene = new AboutWindow(window);
+        var content = (FrameworkElement)scene.Content;
+        var size = aboutPreview ? new Size(410, 439) : reportPicker ? new Size(500, 350) : aiProfiles ? new Size(882, 618) : templateOutput is not null ? new Size(780, 738) : permissionsPreview is not null ? new Size(380, 218) : quickQuestionsPreview is not null ? new Size(490, 438) : new Size(998, 646);
+        scene.Content = null;
+        var frame = new System.Windows.Controls.Grid { Background = scene.Background };
+        frame.Children.Add(content);
+        frame.Measure(size);
+        frame.Arrange(new Rect(size));
+        frame.UpdateLayout();
+        // Render the root at its actual coordinates. A default VisualBrush would
+        // stretch its painted bounds and remove the transparent outer margins.
+        var bitmap = new RenderTargetBitmap((int)size.Width, (int)size.Height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(frame);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using (var file = File.Create(path)) encoder.Save(file);
+        if (reportPicker || aiProfiles || templateOutput is not null || permissionsPreview is not null || quickQuestionsPreview is not null || aboutPreview) scene.Close();
+        window.Close();
+        Shutdown(0);
     }
 }

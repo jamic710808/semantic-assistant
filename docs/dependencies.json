@@ -219,6 +219,35 @@
       ]
     },
     {
+      "Id": "Markdig",
+      "Version": "1.3.2",
+      "Scope": "desktop-dependency",
+      "DesktopFrameworkPruningRange": null,
+      "ContentHashSha512": "fZgOC/3CswUrndjDTac70aQpYdtxbW5+5bRumR7vzvI2HJbkmgKisB1c9oT+GA6v0jB/JDR9BLa9FiPzQmaK6A==",
+      "CacheMetadataMatchesLock": true,
+      "ArchiveHashSha512": "dmJoUi5kDf/QPDdzRLIpzMA3VcQys9OWLV97SgkgX3AWgLR8sFXg+s3C7aEHwFCr/HdXYb4CyhDWJKZYfB8pqQ==",
+      "ArchiveMatchesCacheChecksum": true,
+      "ExtractedMetadataAndNoticesMatchArchive": true,
+      "SignatureVerifiedByThisScript": false,
+      "License": {
+        "Kind": "expression",
+        "Value": "BSD-2-Clause",
+        "Url": "https://licenses.nuget.org/BSD-2-Clause"
+      },
+      "Copyright": "Alexandre Mutel",
+      "Repository": "https://github.com/xoofx/markdig",
+      "RepositoryCommit": "fc705234fa211d179ee1d5e7656b51ab99f70ca9",
+      "TermsReview": "expression-declared",
+      "BundledNotices": [],
+      "Uses": [
+        {
+          "Lock": "src/SemanticAssistant.Desktop/packages.lock.json",
+          "Framework": "net10.0-windows7.0",
+          "DependencyType": "Direct"
+        }
+      ]
+    },
+    {
       "Id": "Microsoft.AnalysisServices.AdomdClient",
       "Version": "19.118.3",
       "Scope": "desktop-dependency",

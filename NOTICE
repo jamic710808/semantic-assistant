@@ -19,6 +19,8 @@ the package's bundled license/notice files and hashes without inferring a
 license from a package name.
 
 Important distribution conditions:
+- Markdig 1.3.2 uses BSD-2-Clause. Its copyright and license are preserved in
+  third-party/Markdig.LICENSE.txt and copied into the desktop publish output.
 - JsonSchema.Net 9.4.0, JsonPointer.Net 7.0.2 and Json.More.Net 3.0.1 include
   OSMFEULA.txt. Their upstream source is MIT, while the upstream binary release
   carries maintenance-fee terms. Consult the exact package agreement and

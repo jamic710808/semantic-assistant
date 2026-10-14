@@ -41,22 +41,39 @@ internal sealed class DashboardWindow : Window
     private bool closeRequested;
     private readonly ModelIdentity? proposedSource;
     private readonly string storageRoot;
+    private readonly ReportAppearance appearance;
+    private readonly ModelModificationPolicy modificationPolicy;
+    private readonly DashboardRegistry? registry;
+    private DashboardRegistration? registration;
+    public DashboardRecord? LastDeployment { get; private set; }
+    public WriteOutcome? LastOutcome => outcome;
+    internal ModelModificationPolicy ModificationPolicy => modificationPolicy;
     public bool Attempted { get; private set; }
     public string? ExportPath { get; private set; }
 
     public DashboardWindow(Window owner, ISemanticModelReader reader, IModelDefinitionWriter writer,
         IReadOnlyDaxQueryRunner runner, ModelSnapshot model, DashboardProposal? initialProposal = null, QueryLimits? queryLimits = null,
-        Action? modeGuard = null, Action<string>? artifactRecorded = null, string? storageRoot = null)
+        Action? modeGuard = null, Action<string>? artifactRecorded = null, string? storageRoot = null, ReportAppearance? appearance = null,
+        ModelModificationPolicy? modificationPolicy = null, DashboardRegistry? registry = null, ImmutableArray<ToolResult> evidence = default)
     {
         this.storageRoot = storageRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SemanticAssistant");
+        this.registry = registry;
+        this.appearance = appearance ?? TemplatePreferences.Default.For(ReportOutputKind.Dashboard);
+        var style = ReportTemplates.Resolve(this.appearance);
+        if (this.appearance.Output != ReportOutputKind.Dashboard) throw new InvalidDataException("看板需要 Dashboard 範本。");
         this.artifactRecorded = artifactRecorded;
         this.modeGuard = modeGuard; modeGuard?.Invoke();
-        this.writer = writer; this.reader = reader; Owner = owner; Title = "Dashboard · 計畫、修改與報告"; Width = 960; Height = 860;
+        this.modificationPolicy = modificationPolicy ?? (owner as MainWindow)?.ModificationPolicy ?? new();
+        this.writer = this.modificationPolicy.Guard(new ProposalBoundModelWriter(writer, () =>
+        { modeGuard?.Invoke(); if (!evidence.IsDefault) foreach (var item in evidence) ToolPolicyEngine.EnsureResultFresh(item); }));
+        this.reader = reader; Owner = owner; Title = "Dashboard · 計畫、修改與報告"; Width = 960; Height = 860;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         session = new(model.Identity, ConversationMode.Report, ImmutableHashSet.Create(Capability.MetadataRead));
-        coordinator = new(reader, writer, runner, session, new FileModelWriteJournal(Path.Combine(this.storageRoot, "write-journal")), queryLimits: queryLimits);
+        coordinator = new(reader, this.writer, runner, session, new FileModelWriteJournal(Path.Combine(this.storageRoot, "write-journal")), queryLimits: queryLimits,
+            modificationPolicy: this.modificationPolicy);
         var panel = new StackPanel { Margin = new Thickness(20) }; Content = new ScrollViewer { Content = panel };
         panel.Children.Add(new TextBlock { Text = $"{model.Identity.Name}\n{model.Identity.Id}\n模型修改、資料查詢與檔案匯出分別同意。此流程沒有 AI 外送。", TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = $"輸出範本：{style.Template.Name} · {style.Palette.Name}（本次視窗固定此設定）", Margin = new Thickness(0, 8, 0, 0) });
         panel.Children.Add(new TextBlock { Text = "計畫：最多六個自有指標、一個分組維度及可選日期範圍。視覺欄位 0 為分組，其後依指標順序。固定 HTML 保存查詢快照；動態 HTML 由目前已驗證指標產生 DAX，依篩選重新計算前100組，KPI只聚合顯示組別。動態 DAX最多8000字，標籤最多256字，需支援HTML/SVG的Power BI視覺；實際引擎與切片器驗收尚待完成。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 10) });
         if (initialProposal is not null) DashboardProposals.Validate(initialProposal, model);
         proposedSource = initialProposal?.Source;
@@ -87,7 +104,8 @@ internal sealed class DashboardWindow : Window
         SetBusy(false);
         resultExpiryTimer.Tick += (_, _) => ExpireResultIfNeeded();
         resultExpiryTimer.Start();
-        Closed += (_, _) => { resultExpiryTimer.Stop(); result = null; report = null; };
+        this.modificationPolicy.Changed += OnPolicyChanged;
+        Closed += (_, _) => { this.modificationPolicy.Changed -= OnPolicyChanged; resultExpiryTimer.Stop(); result = null; report = null; };
     }
     private static DashboardPlan Seed(ModelSnapshot model)
     {
@@ -98,6 +116,7 @@ internal sealed class DashboardWindow : Window
     private void ResetPlan()
     {
         draft = null; outcome = null; result = null; report = null; ExportPath = null;
+        registration = null;
         previewText.Clear();
         status.Text = "計畫與查詢結果已清除；請重新檢查計畫並逐項同意。";
         allowWrite.IsChecked = allowQuery.IsChecked = allowExport.IsChecked = false; SetBusy(running is not null);
@@ -121,20 +140,42 @@ internal sealed class DashboardWindow : Window
         if (current.Identity.Id != session.Snapshot.Target.Id) throw new DefinitionConflictException();
         if (proposedSource is not null && current.Identity != proposedSource) throw new DefinitionConflictException();
         session.Update(current.Identity, ConversationMode.Report, ImmutableHashSet.Create(Capability.MetadataRead));
-        draft = await coordinator.PrepareAsync(DashboardPlans.Parse(input.Text), session.Snapshot, token);
+        var plan = DashboardPlans.Parse(input.Text);
+        MeasureChange? generatedHtml = null;
+        if (registry is not null)
+        {
+            var related = registry.List(current).Where(e => e.Managed.Any(m => plan.Metrics.Any(c => c.Table == m.Table && c.Name == m.Definition.Name))).ToArray();
+            if (related.Length > 1 || related.Length == 1 && !DashboardRegistry.Matches(related[0], current)) throw new DefinitionConflictException();
+            var previous = related.SingleOrDefault();
+            var id = previous?.Id ?? Guid.NewGuid();
+            var model = await reader.ReadSnapshotAsync(token).WaitAsync(token);
+            if (model.Identity != current.Identity) throw new DefinitionConflictException();
+            generatedHtml = DynamicHtmlMeasureCompiler.Compile(plan, DashboardPlans.ProjectMetrics(plan, model),
+                previous?.HtmlMeasure.Table ?? plan.Metrics[0].Table, previous?.HtmlMeasure.Name ?? "SA_Dashboard_" + id.ToString("N"), appearance);
+            registration = new(id, plan, generatedHtml, appearance, previous);
+        }
+        draft = await coordinator.PrepareAsync(plan, session.Snapshot, token, generatedHtml is null ? null : [generatedHtml]);
         previewText.Text = draft.Definition.Diff + $"\n\n待另行同意的查詢：\n{draft.Query}\n\n計畫雜湊：{draft.Hash}";
-        status.Text = "預覽完成；尚未修改模型或查詢數值。";
+        status.Text = modificationPolicy.Snapshot.Allowed ? "預覽完成；尚未修改模型或查詢數值。"
+            : "安全模式：已預覽計畫，不能修改模型；啟用後需重新預覽。";
     });
     private Task ApplyAsync()
     {
+        if (!modificationPolicy.Snapshot.Allowed) { status.Text = "安全模式：禁止修改模型；仍可檢查計畫。"; return Task.CompletedTask; }
         if (draft is null || allowWrite.IsChecked != true) { status.Text = "未同意本次模型修改；沒有寫入。"; return Task.CompletedTask; }
         return RunAsync(async token =>
         {
             UpdateGrants(Capability.MetadataRead, Capability.DefinitionWrite);
             try
             {
+                using var lease = registration is null ? null : registry!.Begin(registration, draft.Definition);
                 var permissions = session.Snapshot; var approval = coordinator.ApproveAfterUserConfirmation(draft, permissions); Attempted = true;
                 outcome = await coordinator.ApplyAsync(draft, approval, permissions, token);
+                if (outcome.Success && lease is not null)
+                {
+                    try { LastDeployment = lease.Commit(outcome); }
+                    catch { outcome = outcome with { Code = "verified_registry_incomplete", Message = outcome.Message + " Dashboard登記保存失敗；部署意圖保留，請重新列出核對恢復狀態。" }; }
+                }
                 if (outcome.After is { } after) session.Update(after.Identity, ConversationMode.Report, ImmutableHashSet.Create(Capability.MetadataRead));
                 status.Text = $"{outcome.Code}\n{outcome.Message}\n操作：{draft.Definition.Plan.OperationId}\n部分失敗：{outcome.PartialFailure}";
             }
@@ -177,7 +218,7 @@ internal sealed class DashboardWindow : Window
             try
             {
                 await EnsureCurrentResultAsync(token); UpdateGrants(Capability.MetadataRead, Capability.ArtifactWrite);
-                ExportPath = await new HtmlReportExporter(Path.Combine(storageRoot, "reports"), session, modeGuard: modeGuard).ExportAsync(result!, session.Snapshot, token, report);
+                ExportPath = await new HtmlReportExporter(Path.Combine(storageRoot, "reports"), session, modeGuard: modeGuard).ExportAsync(result!, session.Snapshot, token, report, appearance);
                 status.Text = $"本機 HTML 已匯出：\n{ExportPath}";
                 try { artifactRecorded?.Invoke(ExportPath); } catch { status.Text += "\n歷史索引保存失敗；報告已完成。"; }
             }
@@ -187,8 +228,9 @@ internal sealed class DashboardWindow : Window
     private Task HtmlMeasureAsync() => RunAsync(async token =>
     {
         await EnsureCurrentResultAsync(token);
-        var change = DashboardPlans.HtmlMeasure(draft!.Plan.Metrics[0].Table, htmlName.Text, result!, report!);
-        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, sourceResult: result, modeGuard: modeGuard, storageRoot: storageRoot);
+        var change = DashboardPlans.HtmlMeasure(draft!.Plan.Metrics[0].Table, htmlName.Text, result!, report!, appearance: appearance);
+        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, sourceResult: result, modeGuard: modeGuard, storageRoot: storageRoot,
+            modificationPolicy: modificationPolicy);
         dialog.ShowDialog(); Attempted |= dialog.Attempted;
         if (dialog.Attempted) ResetPlan();
     });
@@ -201,12 +243,13 @@ internal sealed class DashboardWindow : Window
             !DefinitionRules.MatchesApplied(draft.Definition.Plan, current)) throw new DefinitionConflictException();
         var model = await reader.ReadSnapshotAsync(token).WaitAsync(token);
         if (!session.IsCurrent(permissions) || model.Identity != current.Identity) throw new DefinitionConflictException();
-        return DynamicHtmlMeasureCompiler.Compile(draft.Plan, model, draft.Plan.Metrics[0].Table, htmlName.Text);
+        return DynamicHtmlMeasureCompiler.Compile(draft.Plan, model, draft.Plan.Metrics[0].Table, htmlName.Text, appearance);
     }
     private Task DynamicHtmlMeasureAsync() => RunAsync(async token =>
     {
         var change = await PrepareDynamicHtmlAsync(token);
-        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, modeGuard: modeGuard, storageRoot: storageRoot);
+        var dialog = new ModelWriteWindow(this, writer, session.Snapshot.Target, change.Table, [change], expectedSource: session.Snapshot.Target, modeGuard: modeGuard, storageRoot: storageRoot,
+            modificationPolicy: modificationPolicy);
         dialog.ShowDialog(); Attempted |= dialog.Attempted;
         if (dialog.Attempted) ResetPlan();
     });
@@ -214,11 +257,24 @@ internal sealed class DashboardWindow : Window
     private void SetBusy(bool busy)
     {
         input.IsEnabled = prepare.IsEnabled = !busy; cancel.IsEnabled = busy;
-        allowWrite.IsEnabled = apply.IsEnabled = !busy && draft is not null && outcome is null;
+        allowWrite.IsEnabled = apply.IsEnabled = !busy && draft is not null && outcome is null && modificationPolicy.Snapshot.Allowed;
         allowQuery.IsEnabled = query.IsEnabled = !busy && outcome?.Success == true;
-        allowExport.IsEnabled = export.IsEnabled = htmlMeasure.IsEnabled = !busy && result is not null && report is not null && QueryResultRetention.IsFresh(result);
-        dynamicHtmlMeasure.IsEnabled = !busy && outcome?.Success == true;
+        allowExport.IsEnabled = export.IsEnabled = !busy && result is not null && report is not null && QueryResultRetention.IsFresh(result);
+        htmlMeasure.IsEnabled = export.IsEnabled && modificationPolicy.Snapshot.Allowed;
+        dynamicHtmlMeasure.IsEnabled = !busy && outcome?.Success == true && modificationPolicy.Snapshot.Allowed;
         htmlName.IsEnabled = !busy;
+    }
+    private void OnPolicyChanged()
+    {
+        if (Dispatcher.HasShutdownStarted) return;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (session.Snapshot.Allows(Capability.DefinitionWrite)) { UpdateGrants(Capability.MetadataRead); running?.Cancel(); }
+            allowWrite.IsChecked = false;
+            if (outcome is null) { draft = null; previewText.Clear(); }
+            SetBusy(running is not null);
+            status.Text = "模型修改政策已切換；舊寫入同意失效。查詢結果與檔案匯出仍按原授權處理。";
+        }));
     }
     internal async Task RunSyntheticSmokeAsync(string? previewPath = null)
     {

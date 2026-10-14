@@ -10,6 +10,18 @@ public sealed class WindowsCredentialVault : ICredentialSource
     private static string Target(ProviderIdentity provider) => "SemanticAssistant/AI/" +
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(provider))));
 
+    public bool HasSecret(ProviderIdentity provider)
+    {
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
+        if (!CredRead(Target(provider), 1, 0, out var pointer))
+        {
+            if (Marshal.GetLastWin32Error() == 1168) return false;
+            throw new InvalidOperationException("無法讀取 Windows 認證管理員狀態。");
+        }
+        try { return Marshal.PtrToStructure<Credential>(pointer).BlobSize > 0; }
+        finally { CredFree(pointer); }
+    }
+
     public string? ReadSecret(ProviderIdentity provider)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
