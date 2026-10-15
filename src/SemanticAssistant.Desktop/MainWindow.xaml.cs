@@ -976,7 +976,20 @@ public partial class MainWindow : Window
                     : await exporter.ExportAsync(exportResult!, permissions, cancellation.Token, spec, settings.Templates.For(ReportOutputKind.HtmlFile));
                 TryHistory(() => historyStore.RecordArtifact(AssistantMode.HtmlFile, workspace.Current.Source, path));
                 ResultDetails.Text += $"\n\n已匯出：{path}";
-                if (openBrowser) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                if (openBrowser)
+                {
+                    try
+                    {
+                        var browserPath = LocalHtmlReportLauncher.Open(path);
+                        ResultDetails.Text += $"\n瀏覽器開啟副本：{browserPath}";
+                        SourceStatus.Text = "HTML 報告已產生，已送交預設瀏覽器開啟。";
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException)
+                    {
+                        SourceStatus.Text = "HTML 已匯出；瀏覽器自動開啟未完成。";
+                        MessageBox.Show(this, $"報告已成功匯出，原始檔案保留在：\n{path}\n\n自動開啟未完成：{ex.Message}\n\n可從上述位置手動開啟或複製到文件資料夾。", "報告已匯出", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
                 return path;
             }
             finally
@@ -987,7 +1000,8 @@ public partial class MainWindow : Window
                 SetBusy(false);
             }
         }
-        catch { MessageBox.Show(this, "無法匯出或開啟報告。", "報告匯出"); }
+        catch (QueryResultExpiredException) { MessageBox.Show(this, "這次查詢結果已過期，請重新查詢後再匯出。先前已匯出的 HTML 檔案仍保留。", "報告匯出"); }
+        catch { MessageBox.Show(this, "HTML 匯出未完成，請確認報告來源、結果有效期限與資料夾存取權限。", "報告匯出"); }
         return null;
     }
 
