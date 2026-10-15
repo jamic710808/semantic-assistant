@@ -3,6 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets/SemanticAssistant.ico</ApplicationIcon>
     <Version>1.0.1-dev.20261015</Version>
     <AssemblyVersion>1.0.1.0</AssemblyVersion>
     <FileVersion>1.0.1.0</FileVersion>
@@ -13,6 +14,15 @@
   <ItemGroup>
     <AssemblyMetadata Include="BuildUtc" Value="$(BuildUtc)" />
     <AssemblyMetadata Include="ReleaseChannel" Value="Development" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Assets/SemanticAssistant.ico" />
+    <Resource Include="Assets/SemanticAssistant.ico" />
+    <Content Include="Assets/SemanticAssistant.ico">
+      <Link>SemanticAssistant.ico</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.3.2" />

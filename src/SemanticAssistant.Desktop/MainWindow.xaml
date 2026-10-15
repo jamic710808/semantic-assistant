@@ -3,7 +3,8 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  xmlns:local="clr-namespace:SemanticAssistant.Desktop"
  xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
- Title="Semantic 智能助手" Width="998" Height="646" MinWidth="940" MinHeight="600"
+ Title="Semantic 智能助手" Icon="pack://application:,,,/SemanticAssistant.Desktop;component/Assets/SemanticAssistant.ico"
+ Width="998" Height="646" MinWidth="940" MinHeight="600"
  WindowStyle="None" ResizeMode="CanResize" FontFamily="Microsoft JhengHei UI" FontSize="12"
  Foreground="#252A32" Closing="OnClosing" WindowStartupLocation="CenterScreen">
  <shell:WindowChrome.WindowChrome>

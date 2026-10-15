@@ -21,7 +21,9 @@ function Assert-SourceRelativePath([string]$Path) {
     $taskRoots = @('.gitignore', '.gitattributes', 'LICENSE', 'NOTICE', 'README.md', 'CONTRIBUTING.md',
         'Directory.Build.props', 'NuGet.Config', 'global.json', 'SemanticAssistant.slnx',
         'Start-Semantic-Assistant.cmd', '啟動 Semantic 智能助手.cmd',
-        'third-party/Markdig.LICENSE.txt')
+        'third-party/Markdig.LICENSE.txt',
+        'src/SemanticAssistant.Desktop/Assets/SemanticAssistant.ico',
+        'src/SemanticAssistant.Desktop/Assets/SemanticAssistant.png')
     if ($Path -notin $taskRoots -and ($Path -notmatch '^(\.github|docs|examples|scripts|src|tests)/' -or
         $Path -notmatch '(?i)\.(md|cs|csproj|xaml|json|slnx|props|config|ps1|cmd|yml|yaml|tmdl|txt|rtf)$')) {
         throw 'Source file is outside the reviewed release allowlist.'
