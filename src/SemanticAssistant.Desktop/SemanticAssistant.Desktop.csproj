@@ -18,11 +18,12 @@
   <ItemGroup>
     <None Remove="Assets/SemanticAssistant.ico" />
     <Resource Include="Assets/SemanticAssistant.ico" />
-    <Content Include="Assets/SemanticAssistant.ico">
+    <None Include="Assets/SemanticAssistant.ico">
       <Link>SemanticAssistant.ico</Link>
+      <TargetPath>SemanticAssistant.ico</TargetPath>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.3.2" />
